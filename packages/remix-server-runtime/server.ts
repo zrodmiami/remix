@@ -1,5 +1,7 @@
 import type {
   UNSAFE_DeferredData as DeferredData,
+  DataResult,
+  DataStrategyFunction,
   ErrorResponse,
   StaticHandler,
 } from "@remix-run/router";
@@ -35,12 +37,39 @@ export type RequestHandler = (
   loadContext?: AppLoadContext
 ) => Promise<Response>;
 
+export type CallServerFunction = (
+  routeId: string,
+  request: Request
+) => Promise<DataResult>;
+
 export type CreateRequestHandlerFunction = (
   build: ServerBuild | (() => ServerBuild | Promise<ServerBuild>),
-  mode?: string
+  mode?: string,
+  callServer?: CallServerFunction
 ) => RequestHandler;
 
-function derive(build: ServerBuild, mode?: string) {
+function createDataStrategy(
+  callServer?: CallServerFunction
+): DataStrategyFunction {
+  return ({ defaultStrategy, matches, request }) => {
+    let promises = [];
+
+    for (let match of matches) {
+      if (callServer) {
+        promises.push(callServer(match.route.id, request));
+      } else {
+        promises.push(defaultStrategy(match));
+      }
+    }
+    return Promise.all(promises);
+  };
+}
+
+function derive(
+  build: ServerBuild,
+  mode?: string,
+  callServer?: CallServerFunction
+) {
   let routes = createRoutes(build.routes);
   let dataRoutes = createStaticHandlerDataRoutes(build.routes, build.future);
   let serverMode = isServerMode(mode) ? mode : ServerMode.Production;
@@ -49,6 +78,7 @@ function derive(build: ServerBuild, mode?: string) {
       v7_relativeSplatPath: build.future?.v3_relativeSplatPath === true,
       v7_throwAbortReason: build.future?.v3_throwAbortReason === true,
     },
+    dataStrategy: createDataStrategy(callServer),
   });
 
   let errorHandler =
@@ -72,7 +102,8 @@ function derive(build: ServerBuild, mode?: string) {
 
 export const createRequestHandler: CreateRequestHandlerFunction = (
   build,
-  mode
+  mode,
+  callServer
 ) => {
   let _build: ServerBuild;
   let routes: ServerRoute[];
@@ -84,13 +115,13 @@ export const createRequestHandler: CreateRequestHandlerFunction = (
     _build = typeof build === "function" ? await build() : build;
     mode ??= _build.mode;
     if (typeof build === "function") {
-      let derived = derive(_build, mode);
+      let derived = derive(_build, mode, callServer);
       routes = derived.routes;
       serverMode = derived.serverMode;
       staticHandler = derived.staticHandler;
       errorHandler = derived.errorHandler;
     } else if (!routes || !serverMode || !staticHandler || !errorHandler) {
-      let derived = derive(_build, mode);
+      let derived = derive(_build, mode, callServer);
       routes = derived.routes;
       serverMode = derived.serverMode;
       staticHandler = derived.staticHandler;
@@ -206,7 +237,13 @@ async function handleDataRequestRR(
       });
     }
 
-    if (DEFERRED_SYMBOL in response) {
+    console.log({response});
+
+    if (
+      response &&
+      typeof response === "object" &&
+      DEFERRED_SYMBOL in response
+    ) {
       let deferredData = response[DEFERRED_SYMBOL] as DeferredData;
       let body = createDeferredReadableStream(
         deferredData,

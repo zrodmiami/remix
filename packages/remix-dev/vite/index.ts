@@ -13,4 +13,10 @@ export const unstable_vitePlugin: RemixVitePlugin = (...args) => {
   return remixVitePlugin(...args);
 };
 
+export const unstable_viteRSCPlugin = () => {
+  // eslint-disable-next-line @typescript-eslint/consistent-type-imports
+  let { remixRSCVitePlugin } = require("./plugin") as typeof import("./plugin");
+  return remixRSCVitePlugin();
+};
+
 export { adapter as unstable_vitePluginAdapterCloudflare } from "./adapters/cloudflare";

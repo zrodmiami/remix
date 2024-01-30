@@ -3,7 +3,7 @@
 /// <reference lib="DOM.Iterable" />
 
 import type * as express from "express";
-import type { AppLoadContext, ServerBuild } from "@remix-run/node";
+import type { AppLoadContext, CallServerFunction, ServerBuild } from "@remix-run/node";
 import {
   createRequestHandler as createRemixRequestHandler,
   createReadableStreamFromReadable,
@@ -36,12 +36,14 @@ export function createRequestHandler({
   build,
   getLoadContext,
   mode = process.env.NODE_ENV,
+  callServer,
 }: {
   build: ServerBuild | (() => Promise<ServerBuild>);
   getLoadContext?: GetLoadContextFunction;
   mode?: string;
+  callServer?: CallServerFunction
 }): RequestHandler {
-  let handleRequest = createRemixRequestHandler(build, mode);
+  let handleRequest = createRemixRequestHandler(build, mode, callServer);
 
   return async (
     req: express.Request,

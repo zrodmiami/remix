@@ -40,6 +40,7 @@ export type {
   ActionFunction,
   ActionFunctionArgs,
   AppLoadContext,
+  CallServerFunction,
   Cookie,
   CookieOptions,
   CookieParseOptions,

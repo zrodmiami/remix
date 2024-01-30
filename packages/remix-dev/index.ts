@@ -13,4 +13,5 @@ export type {
 export {
   unstable_vitePlugin,
   unstable_vitePluginAdapterCloudflare,
+  unstable_viteRSCPlugin,
 } from "./vite";

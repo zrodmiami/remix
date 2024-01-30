@@ -19,6 +19,7 @@ import jsesc from "jsesc";
 import pick from "lodash/pick";
 import omit from "lodash/omit";
 import colors from "picocolors";
+import { rscClientPlugin, rscServerPlugin } from "unplugin-rsc";
 
 import { type ConfigRoute, type RouteManifest } from "../config/routes";
 import {
@@ -1120,6 +1121,121 @@ export const remixVitePlugin: RemixVitePlugin = (remixUserConfig = {}) => {
     {
       name: "remix-virtual-modules",
       enforce: "pre",
+      config: async (_viteUserConfig, _viteConfigEnv) => {
+        // Preload Vite's ESM build up-front as soon as we're in an async context
+        await preloadViteEsm();
+
+        // Ensure sync import of Vite works after async preload
+        let vite = importViteEsmSync();
+
+        viteUserConfig = _viteUserConfig;
+        viteConfigEnv = _viteConfigEnv;
+        viteCommand = viteConfigEnv.command;
+
+        await updateRemixPluginContext();
+
+        Object.assign(
+          process.env,
+          vite.loadEnv(
+            viteConfigEnv.mode,
+            ctx.rootDirectory,
+            // We override default prefix of "VITE_" with a blank string since
+            // we're targeting the server, so we want to load all environment
+            // variables, not just those explicitly marked for the client
+            ""
+          )
+        );
+
+        let defaults = {
+          __remixPluginContext: ctx,
+          appType: "custom",
+          optimizeDeps: {
+            include: [
+              // Pre-bundle React dependencies to avoid React duplicates,
+              // even if React dependencies are not direct dependencies.
+              // https://react.dev/warnings/invalid-hook-call-warning#duplicate-react
+              "react",
+              "react/jsx-runtime",
+              "react/jsx-dev-runtime",
+              "react-dom/client",
+
+              // Pre-bundle Remix dependencies to avoid Remix router duplicates.
+              // Our remix-remix-react-proxy plugin does not process default client and
+              // server entry files since those come from within `node_modules`.
+              // That means that before Vite pre-bundles dependencies (e.g. first time dev server is run)
+              // mismatching Remix routers cause `Error: You must render this element inside a <Remix> element`.
+              "@remix-run/react",
+
+              // For some reason, the `vite-dotenv` integration test consistently fails on webkit
+              // with `504 (Outdated Optimize Dep)` from Vite  unless `@remix-run/node` is included
+              // in `optimizeDeps.include`. 🤷
+              // This could be caused by how we copy `node_modules/` into integration test fixtures,
+              // so maybe this will be unnecessary once we switch to pnpm
+              "@remix-run/node",
+            ],
+          },
+          esbuild: {
+            jsx: "automatic",
+            jsxDev: viteCommand !== "build",
+          },
+          resolve: {
+            dedupe: [
+              // https://react.dev/warnings/invalid-hook-call-warning#duplicate-react
+              "react",
+              "react-dom",
+
+              // see description for `@remix-run/react` in `optimizeDeps.include`
+              "@remix-run/react",
+            ],
+          },
+          ...(viteCommand === "build" && {
+            base: ctx.remixConfig.publicPath,
+            build: {
+              ...(!viteConfigEnv.isSsrBuild
+                ? {
+                    manifest: true,
+                    outDir: getClientBuildDirectory(ctx.remixConfig),
+                    rollupOptions: {
+                      preserveEntrySignatures: "exports-only",
+                      input: [
+                        ctx.entryClientFilePath,
+                        ...Object.values(ctx.remixConfig.routes).map(
+                          (route) =>
+                            `${path.resolve(
+                              ctx.remixConfig.appDirectory,
+                              route.file
+                            )}${CLIENT_ROUTE_QUERY_STRING}`
+                        ),
+                      ],
+                    },
+                  }
+                : {
+                    // We move SSR-only assets to client assets. Note that the
+                    // SSR build can also emit code-split JS files (e.g. by
+                    // dynamic import) under the same assets directory
+                    // regardless of "ssrEmitAssets" option, so we also need to
+                    // keep these JS files have to be kept as-is.
+                    ssrEmitAssets: true,
+                    copyPublicDir: false, // Assets in the public directory are only used by the client
+                    manifest: true, // We need the manifest to detect SSR-only assets
+                    outDir: getServerBuildDirectory(ctx),
+                    rollupOptions: {
+                      preserveEntrySignatures: "exports-only",
+                      input: serverBuildId,
+                      output: {
+                        entryFileNames: ctx.remixConfig.serverBuildFile,
+                        format: ctx.remixConfig.serverModuleFormat,
+                      },
+                    },
+                  }),
+            },
+          }),
+        };
+        return vite.mergeConfig(
+          defaults,
+          ctx.remixConfig.adapter?.viteConfig ?? {}
+        );
+      },
       resolveId(id) {
         if (vmods.includes(id)) return VirtualModule.resolve(id);
       },
@@ -1239,8 +1355,9 @@ export const remixVitePlugin: RemixVitePlugin = (remixUserConfig = {}) => {
       name: "remix-route-exports",
       enforce: "post", // Ensure we're operating on the transformed code to support MDX etc.
       async transform(code, id, options) {
-        if (options?.ssr) return;
+        if (options?.ssr && !!process.env.RSC) return;
 
+        console.log({ id, remixConfig: ctx.remixConfig });
         let route = getRoute(ctx.remixConfig, id);
         if (!route) return;
 
@@ -1464,6 +1581,48 @@ export const remixVitePlugin: RemixVitePlugin = (remixUserConfig = {}) => {
     },
   ];
 };
+
+export const remixRSCVitePlugin = (): Vite.Plugin<any>[] => {
+  let isRSCBuild = !!process.env.RSC;
+
+  return [
+    ...(isRSCBuild
+      ? toArray(
+          rscServerPlugin.vite({
+            transformModuleId,
+            useClientRuntime: {
+              function: "createClientReference",
+              module: "@vinxi/react-server-dom-vite/runtime",
+            },
+            useServerRuntime: {
+              function: "createServerReference",
+              module: "@vinxi/react-server-dom-vite/runtime",
+            },
+          })
+        )
+      : toArray(
+          rscClientPlugin.vite({
+            transformModuleId,
+            useServerRuntime: {
+              function: "createServerReference",
+              module: "@vinxi/react-server-dom-vite/client",
+            },
+          })
+        )),
+    {
+      name: "remix-rsc",
+    },
+  ];
+};
+
+function transformModuleId(id: string, type: "use client" | "use server") {
+  console.log("TRANSFORMING", { id, type });
+  return id;
+}
+
+function toArray<T>(maybeArray: T[] | T): T[] {
+  return Array.isArray(maybeArray) ? maybeArray : [maybeArray];
+}
 
 function isEqualJson(v1: unknown, v2: unknown) {
   return JSON.stringify(v1) === JSON.stringify(v2);

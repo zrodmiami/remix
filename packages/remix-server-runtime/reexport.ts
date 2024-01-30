@@ -52,7 +52,7 @@ export type {
 
 export type { SerializeFrom } from "./serialize";
 
-export type { RequestHandler } from "./server";
+export type { CallServerFunction, RequestHandler } from "./server";
 
 export type {
   Session,

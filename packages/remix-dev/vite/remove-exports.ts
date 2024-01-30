@@ -63,10 +63,17 @@ function isIdentifierReferenced(
 
 export const removeExports = (source: string, exportsToRemove: string[]) => {
   let document = parse(source, { sourceType: "module" });
-  let generateCode = () => generate(document).code;
-
   let referencedIdentifiers = new Set<NodePath<BabelTypes.Identifier>>();
   let removedExports = new Set<string>();
+
+  let generateCode = () => {
+    let footer = "\n";
+    for (let exp of removedExports) {
+      footer += `export const ${exp} = 1;\n`;
+    }
+
+    return generate(document).code + footer;
+  };
 
   let markImport = (
     path: NodePath<
