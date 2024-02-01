@@ -227,6 +227,11 @@ export interface RemixConfig {
   entryServerFile: string;
 
   /**
+   * The path to the entry.react-server file, relative to `config.appDirectory`.
+   */
+  entryReactServerFilePath: string;
+
+  /**
    * The absolute path to the entry.server file.
    */
   entryServerFilePath: string;
@@ -459,8 +464,10 @@ export async function resolveConfig(
 
   let userEntryClientFile = findEntry(appDirectory, "entry.client");
   let userEntryServerFile = findEntry(appDirectory, "entry.server");
+  let userEntryReactServerFile = findEntry(appDirectory, "entry.react-server");
 
   let entryServerFile: string;
+  let entryReactServerFile: string;
   let entryClientFile = userEntryClientFile || "entry.client.tsx";
 
   let pkgJson = await PackageJson.load(rootDirectory);
@@ -524,6 +531,54 @@ export async function resolveConfig(
     entryServerFile = `entry.server.${serverRuntime}.tsx`;
   }
 
+  if (userEntryReactServerFile) {
+    entryReactServerFile = userEntryReactServerFile;
+  } else {
+    let serverRuntime = deps["@remix-run/deno"]
+      ? "deno"
+      : deps["@remix-run/cloudflare"]
+      ? "cloudflare"
+      : deps["@remix-run/node"]
+      ? "node"
+      : undefined;
+
+    if (!serverRuntime) {
+      let serverRuntimes = [
+        "@remix-run/deno",
+        "@remix-run/cloudflare",
+        "@remix-run/node",
+      ];
+      let formattedList = disjunctionListFormat.format(serverRuntimes);
+      throw new Error(
+        `Could not determine server runtime. Please install one of the following: ${formattedList}`
+      );
+    }
+
+    if (!deps["isbot"]) {
+      console.log(
+        "adding `isbot` to your package.json, you should commit this change"
+      );
+
+      pkgJson.update({
+        dependencies: {
+          ...pkgJson.content.dependencies,
+          isbot: "^4",
+        },
+      });
+
+      await pkgJson.save();
+
+      let packageManager = detectPackageManager() ?? "npm";
+
+      execSync(`${packageManager} install`, {
+        cwd: rootDirectory,
+        stdio: "inherit",
+      });
+    }
+
+    entryReactServerFile = `entry.react-server.${serverRuntime}.tsx`;
+  }
+
   let entryClientFilePath = userEntryClientFile
     ? path.resolve(appDirectory, userEntryClientFile)
     : path.resolve(defaultsDirectory, entryClientFile);
@@ -531,6 +586,10 @@ export async function resolveConfig(
   let entryServerFilePath = userEntryServerFile
     ? path.resolve(appDirectory, userEntryServerFile)
     : path.resolve(defaultsDirectory, entryServerFile);
+
+  let entryReactServerFilePath = userEntryReactServerFile
+    ? path.resolve(appDirectory, userEntryReactServerFile)
+    : path.resolve(defaultsDirectory, entryReactServerFile);
 
   let assetsBuildDirectory =
     appConfig.assetsBuildDirectory || path.join("public", "build");
@@ -645,6 +704,7 @@ export async function resolveConfig(
     entryClientFilePath,
     entryServerFile,
     entryServerFilePath,
+    entryReactServerFilePath,
     dev: appConfig.dev ?? {},
     assetsBuildDirectory: absoluteAssetsBuildDirectory,
     relativeAssetsBuildDirectory: assetsBuildDirectory,

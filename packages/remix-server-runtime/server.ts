@@ -46,9 +46,13 @@ export type CreateRequestHandlerFunction = (
   mode?: string
 ) => RequestHandler;
 
-function derive(build: ServerBuild, mode?: string) {
+export function derive(
+  build: ServerBuild,
+  mode?: string,
+  reactServer?: boolean
+) {
   let routes = createRoutes(build.routes);
-  let dataRoutes = createStaticHandlerDataRoutes(build.routes, build.future);
+  let dataRoutes = createStaticHandlerDataRoutes(build.routes, build.future, reactServer);
   let serverMode = isServerMode(mode) ? mode : ServerMode.Production;
   let staticHandler = createStaticHandler(dataRoutes, {
     future: {
@@ -212,8 +216,6 @@ async function handleDataRequestRR(
         headers,
       });
     }
-
-    console.log({ response });
 
     if (
       response &&

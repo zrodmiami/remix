@@ -33,12 +33,14 @@ export async function callRouteActionRR({
   params,
   request,
   routeId,
+  reactServer,
 }: {
   request: Request;
   action: ActionFunction;
   params: ActionFunctionArgs["params"];
   loadContext: AppLoadContext;
   routeId: string;
+  reactServer: boolean;
 }) {
   let result = await action({
     request: stripDataParam(stripIndexParam(request)),
@@ -53,6 +55,8 @@ export async function callRouteActionRR({
     );
   }
 
+  if (reactServer) return result;
+
   return isResponse(result) ? result : json(result);
 }
 
@@ -62,12 +66,14 @@ export async function callRouteLoaderRR({
   params,
   request,
   routeId,
+  reactServer,
 }: {
   request: Request;
   loader: LoaderFunction;
   params: LoaderFunctionArgs["params"];
   loadContext: AppLoadContext;
   routeId: string;
+  reactServer: boolean;
 }) {
   let result = await loader({
     request: stripDataParam(stripIndexParam(request)),
@@ -91,6 +97,8 @@ export async function callRouteLoaderRR({
     }
     return result;
   }
+
+  if (reactServer) return result;
 
   return isResponse(result) ? result : json(result);
 }

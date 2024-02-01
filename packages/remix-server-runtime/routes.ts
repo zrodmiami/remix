@@ -76,6 +76,7 @@ export function createRoutes(
 export function createStaticHandlerDataRoutes(
   manifest: ServerRouteManifest,
   future: FutureConfig,
+  reactServer: boolean = false,
   parentId: string = "",
   routesByParentId: Record<
     string,
@@ -99,6 +100,7 @@ export function createStaticHandlerDataRoutes(
               loadContext: args.context,
               loader: route.module.loader!,
               routeId: route.id,
+              reactServer,
             })
         : undefined,
       action: route.module.action
@@ -109,6 +111,7 @@ export function createStaticHandlerDataRoutes(
               loadContext: args.context,
               action: route.module.action!,
               routeId: route.id,
+              reactServer,
             })
         : undefined,
       handle: route.module.handle,
@@ -124,6 +127,7 @@ export function createStaticHandlerDataRoutes(
           children: createStaticHandlerDataRoutes(
             manifest,
             future,
+            reactServer,
             route.id,
             routesByParentId
           ),

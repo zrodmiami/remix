@@ -40,6 +40,7 @@ import { resolveFileUrl } from "./resolve-file-url";
 import { removeExports } from "./remove-exports";
 import { replaceImportSpecifier } from "./replace-import-specifier";
 import { importViteEsmSync, preloadViteEsm } from "./import-vite-esm-sync";
+import { is } from "@babel/types";
 
 const supportedRemixEsbuildConfigKeys = [
   "appDirectory",
@@ -430,6 +431,13 @@ export let getServerBuildDirectory = (ctx: RemixPluginContext) =>
     ...(typeof ctx.serverBundleId === "string" ? [ctx.serverBundleId] : [])
   );
 
+export let getReactServerBuildDirectory = (ctx: RemixPluginContext) =>
+  path.join(
+    ctx.remixConfig.buildDirectory,
+    "react-server",
+    ...(typeof ctx.serverBundleId === "string" ? [ctx.serverBundleId] : [])
+  );
+
 let getClientBuildDirectory = (remixConfig: ResolvedVitePluginConfig) =>
   path.join(remixConfig.buildDirectory, "client");
 
@@ -488,6 +496,7 @@ export const remixVitePlugin: RemixVitePlugin = (remixUserConfig = {}) => {
       appDirectory,
       entryClientFilePath,
       entryServerFilePath,
+      entryReactServerFilePath,
       future,
       publicPath,
       routes,
@@ -555,9 +564,12 @@ export const remixVitePlugin: RemixVitePlugin = (remixUserConfig = {}) => {
       remixConfig,
       rootDirectory,
       entryClientFilePath,
-      entryServerFilePath,
+      entryServerFilePath: process.env.RSC
+        ? entryReactServerFilePath
+        : entryServerFilePath,
       ...serverContext,
     };
+    console.log(ctx);
   };
 
   let getServerEntry = async () => {
@@ -1355,7 +1367,11 @@ export const remixVitePlugin: RemixVitePlugin = (remixUserConfig = {}) => {
       name: "remix-route-exports",
       enforce: "post", // Ensure we're operating on the transformed code to support MDX etc.
       async transform(code, id, options) {
-        if (options?.ssr && !!process.env.RSC) return;
+        if (options?.ssr && !!process.env.RSC)
+          return {
+            code: removeExports(code, ["default", "handle", "meta", "links"]),
+            map: null,
+          };
 
         let route = getRoute(ctx.remixConfig, id);
         if (!route) return;
@@ -1610,6 +1626,16 @@ export const remixRSCVitePlugin = (): Vite.Plugin<any>[] => {
         )),
     {
       name: "remix-rsc",
+      config(config) {
+        if (!isRSCBuild) return;
+        return {
+          ssr: {
+            resolve: {
+              externalConditions: ["react-server"],
+            },
+          },
+        };
+      },
     },
   ];
 };

@@ -69,6 +69,7 @@ export const removeExports = (source: string, exportsToRemove: string[]) => {
   let generateCode = () => {
     let footer = "\n";
     for (let exp of removedExports) {
+      if (exp === "default") continue;
       footer += `export const ${exp} = 1;\n`;
     }
 
@@ -213,6 +214,13 @@ export const removeExports = (source: string, exportsToRemove: string[]) => {
 
       if (shouldRemove) {
         path.remove();
+      }
+    },
+    ExportDefaultDeclaration(path) {
+      if (exportsToRemove.includes("default")) {
+        removedExports.add("default");
+        path.remove();
+        return false;
       }
     },
   });

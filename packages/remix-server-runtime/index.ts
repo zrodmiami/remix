@@ -5,6 +5,8 @@ export {
   parseMultipartFormData as unstable_parseMultipartFormData,
 } from "./formData";
 export { defer, json, redirect, redirectDocument } from "./responses";
+export { createRSCRequestHandler } from "./react-server";
+export type { RSCRequestHandler } from "./react-server";
 export { createRequestHandler } from "./server";
 export {
   createSession,

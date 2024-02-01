@@ -41,6 +41,10 @@ export interface HandleErrorFunction {
   (error: unknown, args: LoaderFunctionArgs | ActionFunctionArgs): void;
 }
 
+export interface RenderToReadableStreamFunction {
+  (data: unknown): ReadableStream<Uint8Array>;
+}
+
 /**
  * A module that serves as the entry point for a Remix app during server
  * rendering.
@@ -50,4 +54,5 @@ export interface ServerEntryModule {
   handleDataRequest?: HandleDataRequestFunction;
   handleError?: HandleErrorFunction;
   dataStrategy?: DataStrategyFunction;
+  renderToReadableStream?: RenderToReadableStreamFunction;
 }
