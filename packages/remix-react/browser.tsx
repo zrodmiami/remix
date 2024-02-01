@@ -39,6 +39,9 @@ declare global {
   var __remixRouteModules: RouteModules;
   var __remixManifest: EntryContext["manifest"];
   var __remixRevalidation: number | undefined;
+  var __remixCreateFromRSCReadableStream: (
+    stream: ReadableStream
+  ) => Promise<any>;
   var __remixClearCriticalCss: () => void;
   var $RefreshRuntime$: {
     performReactRefresh: () => void;

@@ -23,8 +23,28 @@ export function createServerHandoffString<T>(serverHandoff: {
   url: string;
   future: FutureConfig;
   isSpaMode: boolean;
-}): string {
+}): string | undefined {
+  if (
+    hasRSC(serverHandoff.state.loaderData) ||
+    hasRSC(serverHandoff.state.actionData)
+  ) {
+    return undefined;
+  }
   // Uses faster alternative of jsesc to escape data returned from the loaders.
   // This string is inserted directly into the HTML in the `<Scripts>` element.
   return escapeHtml(JSON.stringify(serverHandoff));
+}
+
+function hasRSC(routeData: HydrationState["loaderData"] | null | undefined) {
+  if (!routeData) return false;
+  for (let value of Object.values(routeData)) {
+    if (
+      value &&
+      typeof value === "object" &&
+      value.$$typeof === Symbol.for("remix.rsc-data")
+    ) {
+      return true;
+    }
+  }
+  return false;
 }

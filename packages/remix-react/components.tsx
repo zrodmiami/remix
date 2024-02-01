@@ -622,8 +622,15 @@ export type ScriptProps = Omit<
  * @see https://remix.run/components/scripts
  */
 export function Scripts(props: ScriptProps) {
-  let { manifest, serverHandoffString, abortDelay, serializeError, isSpaMode } =
-    useRemixContext();
+  let {
+    criticalCss,
+    future,
+    manifest,
+    serverHandoffString: _serverHandoffString,
+    abortDelay,
+    serializeError,
+    isSpaMode,
+  } = useRemixContext();
   let { router, static: isStatic, staticContext } = useDataRouterContext();
   let { matches: routerMatches } = useDataRouterStateContext();
   let navigation = useNavigation();
@@ -688,6 +695,85 @@ export function Scripts(props: ScriptProps) {
 
   let deferredScripts: any[] = [];
   let initialScripts = React.useMemo(() => {
+    let createRSCStreamScript = (type: "loader" | "action", key: string) => {
+      return `window.__remixContext.state.${type}Data[${JSON.stringify(
+        key
+      )}] = (() => {
+        let r = {
+          $$typeof: Symbol.for("remix.rsc-data"),
+          encoder: new TextEncoder(),
+        };
+        r.stream = new ReadableStream({
+          start(controller) {
+            r.controller = controller;
+          }
+        });
+        return r;
+      })()`;
+    };
+
+    let serverHandoffString = _serverHandoffString;
+    let toStream: ["action" | "loader", string][] = [];
+    if (staticContext && !serverHandoffString) {
+      let toAppend: string[] = [];
+      serverHandoffString = escapeHtml(
+        JSON.stringify({
+          url: staticContext.location.pathname,
+          criticalCss,
+          state: {
+            actionData: staticContext.actionData
+              ? Object.entries(staticContext.actionData).reduce(
+                  (acc, [key, value]) => {
+                    let val = value;
+                    if (
+                      value &&
+                      typeof value === "object" &&
+                      "$$typeof" in value &&
+                      value.$$typeof === Symbol.for("remix.rsc-data")
+                    ) {
+                      val = {};
+                      toAppend.push(createRSCStreamScript("action", key));
+                      toStream.push(["action", key]);
+                    }
+                    return Object.assign(acc, {
+                      [key]: val,
+                    });
+                  },
+                  {}
+                )
+              : null,
+            loaderData: staticContext.loaderData
+              ? Object.entries(staticContext.loaderData).reduce(
+                  (acc, [key, value]) => {
+                    let val = value;
+                    if (
+                      value &&
+                      typeof value === "object" &&
+                      "$$typeof" in value &&
+                      value.$$typeof === Symbol.for("remix.rsc-data")
+                    ) {
+                      val = {};
+                      toAppend.push(createRSCStreamScript("loader", key));
+                      toStream.push(["loader", key]);
+                    }
+                    return Object.assign(acc, {
+                      [key]: val,
+                    });
+                  },
+                  {}
+                )
+              : null,
+            errors: null,
+          },
+          future,
+          isSpaMode,
+        })
+      );
+      if (toAppend.length > 0) {
+        serverHandoffString += `;${toAppend.join(";")}`;
+      }
+    }
+
     let contextScript = staticContext
       ? `window.__remixContext = ${serverHandoffString};`
       : " ";
@@ -810,7 +896,9 @@ window.__remixRouteModules = {${matches
           )
           .join(",")}};
 
-import(${JSON.stringify(manifest.entry.module)});`;
+import(${JSON.stringify(
+          manifest.entry.module
+        )}).then((m) => {if(m && "default" in m && typeof m.default === "function"){m.default();}if (m && "createFromReadableStream" in m) {window.__remixCreateFromRSCReadableStream = m.createFromReadableStream;}});`;
 
     return (
       <>
@@ -827,6 +915,19 @@ import(${JSON.stringify(manifest.entry.module)});`;
           type="module"
           async
         />
+        {/* TODO: This is causing hydration mismatches and needs to be fixed */}
+        {toStream.map(([type, key]) => (
+          <React.Suspense key={`${type}:${key}`}>
+            <StreamRSCData
+              type={type}
+              dataKey={key}
+              decoder={new TextDecoder()}
+              reader={staticContext?.[`${type}Data`]?.[
+                key
+              ]?.stream?.getReader()}
+            />
+          </React.Suspense>
+        ))}
       </>
     );
     // disabled deps array because we are purposefully only rendering this once
@@ -895,6 +996,73 @@ import(${JSON.stringify(manifest.entry.module)});`;
       ))}
       {initialScripts}
       {deferredScripts}
+    </>
+  );
+}
+
+async function StreamRSCData({
+  dataKey,
+  decoder,
+  reader,
+  type,
+}: {
+  dataKey: string;
+  decoder: TextDecoder;
+  reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
+  type: "action" | "loader";
+}) {
+  if (!reader)
+    return (
+      <script
+        suppressHydrationWarning
+        dangerouslySetInnerHTML={{ __html: " " }}
+      />
+    );
+  let { done, value } = await reader.read();
+  let decoded = decoder.decode(value, { stream: true });
+
+  let script = decoded ? (
+    <script
+      dangerouslySetInnerHTML={{
+        __html: `window.__remixContext.state.${type}Data[${JSON.stringify(
+          dataKey
+        )}].controller.enqueue(
+          window.__remixContext.state.${type}Data[${JSON.stringify(
+          dataKey
+        )}].encoder.encode(
+            ${escapeHtml(JSON.stringify(decoded))}
+          )
+        );`,
+      }}
+    />
+  ) : null;
+
+  if (done) {
+    return (
+      <>
+        {script}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `window.__remixContext.state.${type}Data[${JSON.stringify(
+              dataKey
+            )}].controller.close();`,
+          }}
+        />
+      </>
+    );
+  }
+
+  return (
+    <>
+      {script}
+      <React.Suspense>
+        <StreamRSCData
+          dataKey={dataKey}
+          decoder={decoder}
+          reader={reader}
+          type={type}
+        />
+      </React.Suspense>
     </>
   );
 }
@@ -1019,13 +1187,35 @@ export function useMatches(): UIMatch[] {
   return useMatchesRR() as UIMatch[];
 }
 
+function usePotentialRSCData(data: any) {
+  if (
+    data &&
+    typeof data === "object" &&
+    "$$typeof" in data &&
+    data.$$typeof === Symbol.for("remix.rsc-data")
+  ) {
+    if (!("data" in data) && !data.promise) {
+      data.promise = Promise.resolve(
+        window.__remixCreateFromRSCReadableStream(data.stream)
+      ).then((d) => {
+        data.data = d;
+        data.promise = undefined;
+      });
+    }
+    if (data.promise) return React.use(data.promise);
+    return data.data;
+  }
+
+  return data;
+}
+
 /**
  * Returns the JSON parsed data from the current route's `loader`.
  *
  * @see https://remix.run/hooks/use-loader-data
  */
 export function useLoaderData<T = AppData>(): SerializeFrom<T> {
-  return useLoaderDataRR() as SerializeFrom<T>;
+  return usePotentialRSCData(useLoaderDataRR()) as SerializeFrom<T>;
 }
 
 /**
@@ -1036,7 +1226,9 @@ export function useLoaderData<T = AppData>(): SerializeFrom<T> {
 export function useRouteLoaderData<T = AppData>(
   routeId: string
 ): SerializeFrom<T> | undefined {
-  return useRouteLoaderDataRR(routeId) as SerializeFrom<T> | undefined;
+  return usePotentialRSCData(useRouteLoaderDataRR(routeId)) as
+    | SerializeFrom<T>
+    | undefined;
 }
 
 /**
@@ -1045,7 +1237,7 @@ export function useRouteLoaderData<T = AppData>(
  * @see https://remix.run/hooks/use-action-data
  */
 export function useActionData<T = AppData>(): SerializeFrom<T> | undefined {
-  return useActionDataRR() as SerializeFrom<T> | undefined;
+  return usePotentialRSCData(useActionDataRR()) as SerializeFrom<T> | undefined;
 }
 
 /**

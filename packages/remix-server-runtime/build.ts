@@ -1,3 +1,5 @@
+import type { DataStrategyFunction } from "@remix-run/router";
+
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "./routeModules";
 import type { AssetsManifest, EntryContext, FutureConfig } from "./entry";
 import type { ServerRouteManifest } from "./routes";
@@ -47,4 +49,5 @@ export interface ServerEntryModule {
   default: HandleDocumentRequestFunction;
   handleDataRequest?: HandleDataRequestFunction;
   handleError?: HandleErrorFunction;
+  dataStrategy?: DataStrategyFunction;
 }

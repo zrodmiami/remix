@@ -1357,7 +1357,6 @@ export const remixVitePlugin: RemixVitePlugin = (remixUserConfig = {}) => {
       async transform(code, id, options) {
         if (options?.ssr && !!process.env.RSC) return;
 
-        console.log({ id, remixConfig: ctx.remixConfig });
         let route = getRoute(ctx.remixConfig, id);
         if (!route) return;
 
@@ -1616,7 +1615,6 @@ export const remixRSCVitePlugin = (): Vite.Plugin<any>[] => {
 };
 
 function transformModuleId(id: string, type: "use client" | "use server") {
-  console.log("TRANSFORMING", { id, type });
   return id;
 }
 
