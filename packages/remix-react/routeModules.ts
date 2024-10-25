@@ -9,7 +9,11 @@ import type {
   Location,
   ShouldRevalidateFunction,
 } from "react-router-dom";
-import type { LoaderFunction, SerializeFrom } from "@remix-run/server-runtime";
+import type {
+  Future,
+  LoaderFunction,
+  SerializeFrom,
+} from "@remix-run/server-runtime";
 
 import type { AppData } from "./data";
 import type { LinkDescriptor } from "./links";
@@ -85,6 +89,47 @@ export type LayoutComponent = ComponentType<{
   >;
 }>;
 
+// Base type that all route module function args should extend from so we can
+// keep their APIs as consistent as possible
+// `loader`/`action` will add the `request` and `context`
+// `clientLoader`/`clientAction` will add the `request` and `serverLoader`/`serverAction`
+// `meta`/`links`/`headers` will add `data` and `values`
+//
+//  Note: If you change this, please change the corresponding type in
+// `@remix-run/server-runtime`
+type BaseRouteModuleFunctionArgs = {
+  location: Location;
+  params: Params;
+  matches: DataRouteMatch[];
+};
+
+type RouteModuleFunctionDataArgs<
+  Loader extends LoaderFunction | unknown = unknown,
+  Loaders extends Record<string, LoaderFunction | unknown> = Record<
+    string,
+    unknown
+  >
+> = {
+  data:
+    | (Loader extends LoaderFunction ? SerializeFrom<Loader> : AppData)
+    | undefined;
+  loaderData: {
+    [K in keyof Loaders]: Loaders[K];
+  };
+};
+
+type LinksFunctionArgs<
+  Loader extends LoaderFunction | unknown = unknown,
+  Loaders extends Record<string, LoaderFunction | unknown> = Record<
+    string,
+    unknown
+  >
+> = Future extends {
+  unstable_alignRouteSignatures: true;
+}
+  ? [BaseRouteModuleFunctionArgs & RouteModuleFunctionDataArgs<Loader, Loaders>]
+  : [];
+
 /**
  * A function that defines `<link>` tags to be inserted into the `<head>` of
  * the document on route transitions.
@@ -92,7 +137,7 @@ export type LayoutComponent = ComponentType<{
  * @see https://remix.run/route/meta
  */
 export interface LinksFunction {
-  (): LinkDescriptor[];
+  (...args: LinksFunctionArgs): LinkDescriptor[];
 }
 
 export interface MetaMatch<
@@ -122,21 +167,30 @@ export type MetaMatches<
   }[keyof MatchLoaders]
 >;
 
-export interface MetaArgs<
+export type MetaArgs<
   Loader extends LoaderFunction | unknown = unknown,
-  MatchLoaders extends Record<string, LoaderFunction | unknown> = Record<
+  Loaders extends Record<string, LoaderFunction | unknown> = Record<
     string,
     unknown
   >
-> {
-  data:
-    | (Loader extends LoaderFunction ? SerializeFrom<Loader> : AppData)
-    | undefined;
-  params: Params;
-  location: Location;
-  matches: MetaMatches<MatchLoaders>;
-  error?: unknown;
+> = Future extends {
+  unstable_alignRouteSignatures: true;
 }
+  ? [
+      BaseRouteModuleFunctionArgs &
+        RouteModuleFunctionDataArgs<Loader, Loaders> & {
+          values: Record<string, MetaDescriptor[]>;
+        }
+    ]
+  : {
+      data:
+        | (Loader extends LoaderFunction ? SerializeFrom<Loader> : AppData)
+        | undefined;
+      params: Params;
+      location: Location;
+      matches: MetaMatches<Loaders>;
+      error?: unknown;
+    };
 
 export interface MetaFunction<
   Loader extends LoaderFunction | unknown = unknown,

@@ -1,6 +1,7 @@
 import type {
   ActionFunction as RRActionFunction,
   ActionFunctionArgs as RRActionFunctionArgs,
+  AgnosticDataRouteMatch,
   AgnosticRouteMatch,
   LoaderFunction as RRLoaderFunction,
   LoaderFunctionArgs as RRLoaderFunctionArgs,
@@ -11,6 +12,7 @@ import type {
 import type { AppData, AppLoadContext } from "./data";
 import type { LinkDescriptor } from "./links";
 import type { SerializeFrom } from "./serialize";
+import { Future } from "./future";
 
 export interface RouteModules<RouteModule> {
   [routeId: string]: RouteModule | undefined;
@@ -91,12 +93,57 @@ export type ClientLoaderFunctionArgs = RRLoaderFunctionArgs<undefined> & {
   serverLoader: <T = AppData>() => Promise<SerializeFrom<T>>;
 };
 
-export type HeadersArgs = {
-  loaderHeaders: Headers;
-  parentHeaders: Headers;
-  actionHeaders: Headers;
-  errorHeaders: Headers | undefined;
+// Base type that all route module function args should extend from so we can
+// keep their APIs as consistent as possible
+// `loader`/`action` will add the `request` and `context`
+// `clientLoader`/`clientAction` will add the `request` and `serverLoader`/`serverAction`
+// `meta`/`links`/`headers` will add `data` and `values`
+//
+//  Note: If you change this, please change the corresponding type in
+// `@remix-run/server-runtime`
+type BaseRouteModuleFunctionArgs = {
+  location: Location;
+  params: Params;
+  matches: AgnosticDataRouteMatch[];
 };
+
+type RouteModuleFunctionDataArgs<
+  Loader extends LoaderFunction | unknown = unknown,
+  Loaders extends Record<string, LoaderFunction | unknown> = Record<
+    string,
+    unknown
+  >
+> = {
+  data:
+    | (Loader extends LoaderFunction ? SerializeFrom<Loader> : AppData)
+    | undefined;
+  loaderData: {
+    [K in keyof Loaders]: Loaders[K];
+  };
+};
+
+type HeadersArgs<
+  Loader extends LoaderFunction | unknown = unknown,
+  Loaders extends Record<string, LoaderFunction | unknown> = Record<
+    string,
+    unknown
+  >
+> = Future extends {
+  unstable_alignRouteSignatures: true;
+}
+  ? BaseRouteModuleFunctionArgs &
+      RouteModuleFunctionDataArgs<Loader, Loaders> & {
+        loaderHeaders: Headers;
+        parentHeaders: Headers;
+        actionHeaders: Headers;
+        errorHeaders: Headers | undefined;
+      }
+  : {
+      loaderHeaders: Headers;
+      parentHeaders: Headers;
+      actionHeaders: Headers;
+      errorHeaders: Headers | undefined;
+    };
 
 /**
  * A function that returns HTTP headers to be used for a route. These headers
@@ -106,12 +153,24 @@ export interface HeadersFunction {
   (args: HeadersArgs): Headers | HeadersInit;
 }
 
+type LinksFunctionArgs<
+  Loader extends LoaderFunction | unknown = unknown,
+  Loaders extends Record<string, LoaderFunction | unknown> = Record<
+    string,
+    unknown
+  >
+> = Future extends {
+  unstable_alignRouteSignatures: true;
+}
+  ? [BaseRouteModuleFunctionArgs & RouteModuleFunctionDataArgs<Loader, Loaders>]
+  : [];
+
 /**
  * A function that defines `<link>` tags to be inserted into the `<head>` of
  * the document on route transitions.
  */
 export interface LinksFunction {
-  (): LinkDescriptor[];
+  (...args: LinksFunctionArgs): LinkDescriptor[];
 }
 
 /**
@@ -211,21 +270,30 @@ type ServerRuntimeMetaMatches<
   }[keyof MatchLoaders]
 >;
 
-export interface ServerRuntimeMetaArgs<
+export type ServerRuntimeMetaArgs<
   Loader extends LoaderFunction | unknown = unknown,
-  MatchLoaders extends Record<string, LoaderFunction | unknown> = Record<
+  Loaders extends Record<string, LoaderFunction | unknown> = Record<
     string,
     unknown
   >
-> {
-  data:
-    | (Loader extends LoaderFunction ? SerializeFrom<Loader> : AppData)
-    | undefined;
-  params: Params;
-  location: Location;
-  matches: ServerRuntimeMetaMatches<MatchLoaders>;
-  error?: unknown;
+> = Future extends {
+  unstable_alignRouteSignatures: true;
 }
+  ? [
+      BaseRouteModuleFunctionArgs &
+        RouteModuleFunctionDataArgs<Loader, Loaders> & {
+          values: Record<string, ServerRuntimeMetaDescriptor[]>;
+        }
+    ]
+  : {
+      data:
+        | (Loader extends LoaderFunction ? SerializeFrom<Loader> : AppData)
+        | undefined;
+      params: Params;
+      location: Location;
+      matches: ServerRuntimeMetaMatches<Loaders>;
+      error?: unknown;
+    };
 
 export type ServerRuntimeMetaDescriptor =
   | { charSet: "utf-8" }

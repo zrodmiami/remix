@@ -1,1 +1,3 @@
-export interface Future {}
+export interface Future {
+  unstable_alignRouteSignatures: true;
+}

@@ -45,6 +45,7 @@ export interface FutureConfig {
   v3_relativeSplatPath: boolean;
   v3_lazyRouteDiscovery: boolean;
   v3_singleFetch: boolean;
+  unstable_alignRouteSignatures: boolean;
 }
 
 export interface AssetsManifest {

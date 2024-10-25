@@ -1,4 +1,4 @@
-import type { AgnosticDataRouteMatch } from "@remix-run/router";
+import type { AgnosticDataRouteMatch, RouterState } from "@remix-run/router";
 import type { Location } from "react-router-dom";
 import { parsePath } from "react-router-dom";
 
@@ -200,6 +200,12 @@ export interface PrefetchPageDescriptor
 
 export type LinkDescriptor = HtmlLinkDescriptor | PrefetchPageDescriptor;
 
+declare module "@remix-run/server-runtime" {
+  interface Future {
+    unstable_alignRouteSignatures: false;
+  }
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 
 /**
@@ -209,7 +215,10 @@ export type LinkDescriptor = HtmlLinkDescriptor | PrefetchPageDescriptor;
 export function getKeyedLinksForMatches(
   matches: AgnosticDataRouteMatch[],
   routeModules: RouteModules,
-  manifest: AssetsManifest
+  manifest: AssetsManifest,
+  location: Location,
+  loaderData: RouterState["loaderData"],
+  future: FutureConfig
 ): KeyedLinkDescriptor[] {
   let descriptors = matches
     .map((match): LinkDescriptor[][] => {
@@ -217,7 +226,17 @@ export function getKeyedLinksForMatches(
       let route = manifest.routes[match.route.id];
       return [
         route.css ? route.css.map((href) => ({ rel: "stylesheet", href })) : [],
-        module?.links?.() || [],
+        module?.links
+          ? future.unstable_alignRouteSignatures
+            ? module.links({
+                location,
+                params: match.params,
+                matches,
+                data: loaderData[match.route.id],
+                loaderData,
+              })
+            : module.links(...[])
+          : [],
       ];
     })
     .flat(2);

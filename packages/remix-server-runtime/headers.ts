@@ -61,18 +61,35 @@ export function getDocumentHeaders(
       return headers;
     }
 
-    let headers = new Headers(
-      routeModule.headers
-        ? typeof routeModule.headers === "function"
-          ? routeModule.headers({
-              loaderHeaders,
-              parentHeaders,
-              actionHeaders,
-              errorHeaders: includeErrorHeaders ? errorHeaders : undefined,
-            })
-          : routeModule.headers
-        : undefined
-    );
+    let headers: Headers;
+    if (!routeModule.headers) {
+      headers = new Headers();
+    } else if (typeof routeModule.headers !== "function") {
+      headers = new Headers(routeModule.headers);
+    } else if (build.future?.unstable_alignRouteSignatures) {
+      headers = new Headers(
+        routeModule.headers({
+          location: context.location,
+          params: context.matches[0] ? context.matches[0].params : {},
+          matches: context.matches,
+          data: context.loaderData[id],
+          loaderData: context.loaderData,
+          loaderHeaders,
+          parentHeaders,
+          actionHeaders,
+          errorHeaders: includeErrorHeaders ? errorHeaders : undefined,
+        })
+      );
+    } else {
+      headers = new Headers(
+        routeModule.headers({
+          loaderHeaders,
+          parentHeaders,
+          actionHeaders,
+          errorHeaders: includeErrorHeaders ? errorHeaders : undefined,
+        })
+      );
+    }
 
     // Automatically preserve Set-Cookie headers from bubbled responses,
     // loaders, errors, and parent routes

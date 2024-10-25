@@ -39,6 +39,7 @@ interface FutureConfig {
   v3_throwAbortReason: boolean;
   v3_singleFetch: boolean;
   v3_lazyRouteDiscovery: boolean;
+  unstable_alignRouteSignatures: boolean;
   unstable_optimizeDeps: boolean;
 }
 
