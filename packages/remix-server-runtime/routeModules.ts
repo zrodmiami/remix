@@ -10,9 +10,9 @@ import type {
 } from "@remix-run/router";
 
 import type { AppData, AppLoadContext } from "./data";
+import type { Future } from "./future";
 import type { LinkDescriptor } from "./links";
 import type { SerializeFrom } from "./serialize";
-import { Future } from "./future";
 
 export interface RouteModules<RouteModule> {
   [routeId: string]: RouteModule | undefined;
@@ -93,6 +93,18 @@ export type ClientLoaderFunctionArgs = RRLoaderFunctionArgs<undefined> & {
   serverLoader: <T = AppData>() => Promise<SerializeFrom<T>>;
 };
 
+// FIXME: Temporary - don't commit :)
+// Route module function audit:
+// loader/action             - matches, params, request, context
+// clientLoader/clientAction - matches, params, request, serverLoader/serverAction
+// headers                   - matches, params, data, loaderData, parentHeaders/loaderHeaders/actionHeaders/errorHeaders
+// links                     - matches, params, data?, loaderData?
+// meta                      - matches, params, data, loaderData, values
+//
+// TODO:
+// - Do we want a `request` equivalent in links/meta?  Would need to be a `path`
+//   and not a `location` since we won't have `key`/`state` during SSR
+
 // Base type that all route module function args should extend from so we can
 // keep their APIs as consistent as possible
 // `loader`/`action` will add the `request` and `context`
@@ -103,8 +115,8 @@ export type ClientLoaderFunctionArgs = RRLoaderFunctionArgs<undefined> & {
 // `@remix-run/server-runtime`
 type BaseRouteModuleFunctionArgs = {
   location: Location;
-  params: Params;
   matches: AgnosticDataRouteMatch[];
+  params: Params;
 };
 
 type RouteModuleFunctionDataArgs<
@@ -153,7 +165,7 @@ export interface HeadersFunction {
   (args: HeadersArgs): Headers | HeadersInit;
 }
 
-type LinksFunctionArgs<
+export type LinksFunctionArgs<
   Loader extends LoaderFunction | unknown = unknown,
   Loaders extends Record<string, LoaderFunction | unknown> = Record<
     string,
@@ -162,7 +174,14 @@ type LinksFunctionArgs<
 > = Future extends {
   unstable_alignRouteSignatures: true;
 }
-  ? [BaseRouteModuleFunctionArgs & RouteModuleFunctionDataArgs<Loader, Loaders>]
+  ? [
+      Omit<BaseRouteModuleFunctionArgs, "location" | "matches" | "params"> & {
+        // Only available from <Links> instantiations, not prefetching/route.lazy
+        location?: BaseRouteModuleFunctionArgs["location"];
+        matches?: BaseRouteModuleFunctionArgs["matches"];
+        params?: BaseRouteModuleFunctionArgs["params"];
+      } & RouteModuleFunctionDataArgs<Loader, Loaders>
+    ]
   : [];
 
 /**

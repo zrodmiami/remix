@@ -113,7 +113,16 @@ export const createRequestHandler: CreateRequestHandlerFunction = (
     }
 
     let url = new URL(request.url);
-    let params: RouteMatch<ServerRoute>["params"] = {};
+    let manifestUrl = `${_build.basename ?? "/"}/__manifest`.replace(
+      /\/+/g,
+      "/"
+    );
+    let isManifestRequest = url.pathname === manifestUrl;
+    let matches = !isManifestRequest
+      ? matchServerRoutes(routes, url.pathname, _build.basename)
+      : null;
+    let params = matches && matches.length > 0 ? matches[0].params : {};
+
     let handleError = (error: unknown) => {
       if (mode === ServerMode.Development) {
         getDevServerHooks()?.processRequestError?.(error);
@@ -123,15 +132,12 @@ export const createRequestHandler: CreateRequestHandlerFunction = (
         context: loadContext,
         params,
         request,
+        matches,
       });
     };
 
     // Manifest request for fog of war
 
-    let manifestUrl = `${_build.basename ?? "/"}/__manifest`.replace(
-      /\/+/g,
-      "/"
-    );
     if (url.pathname === manifestUrl) {
       try {
         let res = await handleManifestRequest(_build, routes, url);
@@ -140,11 +146,6 @@ export const createRequestHandler: CreateRequestHandlerFunction = (
         handleError(e);
         return new Response("Unknown Server Error", { status: 500 });
       }
-    }
-
-    let matches = matchServerRoutes(routes, url.pathname, _build.basename);
-    if (matches && matches.length > 0) {
-      Object.assign(params, matches[0].params);
     }
 
     let response: Response;
@@ -174,6 +175,7 @@ export const createRequestHandler: CreateRequestHandlerFunction = (
           context: loadContext,
           params,
           request,
+          matches,
         });
 
         if (isRedirectResponse(response)) {
@@ -207,6 +209,7 @@ export const createRequestHandler: CreateRequestHandlerFunction = (
           context: loadContext,
           params: singleFetchMatches ? singleFetchMatches[0].params : {},
           request,
+          matches,
         });
 
         if (isRedirectResponse(response)) {

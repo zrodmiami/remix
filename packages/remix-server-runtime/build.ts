@@ -1,7 +1,8 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "./routeModules";
 import type { AssetsManifest, EntryContext, FutureConfig } from "./entry";
-import type { ServerRouteManifest } from "./routes";
+import type { ServerRoute, ServerRouteManifest } from "./routes";
 import type { AppLoadContext } from "./data";
+import { RouteMatch } from "./routeMatching";
 
 // NOTE: IF you modify `ServerBuild`, be sure to modify the
 // `remix-dev/server-build.ts` file to reflect the new field as well
@@ -37,13 +38,21 @@ export interface HandleDocumentRequestFunction {
 }
 
 export interface HandleDataRequestFunction {
-  (response: Response, args: LoaderFunctionArgs | ActionFunctionArgs):
-    | Promise<Response>
-    | Response;
+  (
+    response: Response,
+    args: Omit<LoaderFunctionArgs | ActionFunctionArgs, "matches"> & {
+      matches: RouteMatch<ServerRoute>[] | null;
+    }
+  ): Promise<Response> | Response;
 }
 
 export interface HandleErrorFunction {
-  (error: unknown, args: LoaderFunctionArgs | ActionFunctionArgs): void;
+  (
+    error: unknown,
+    args: Omit<LoaderFunctionArgs | ActionFunctionArgs, "matches"> & {
+      matches: RouteMatch<ServerRoute>[] | null;
+    }
+  ): void;
 }
 
 /**

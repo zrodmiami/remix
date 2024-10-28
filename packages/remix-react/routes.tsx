@@ -295,8 +295,7 @@ export function createClientRoutes(
       handler: () => Promise<unknown>,
       future: FutureConfig,
       location: Location,
-      matches: AgnosticDataRouteMatch[],
-      loaderData: RouterState["loaderData"]
+      matches: AgnosticDataRouteMatch[]
     ) {
       // Only prefetch links if we exist in the routeModulesCache (critical modules
       // and navigating back to pages previously loaded via route.lazy).  Initial
@@ -310,7 +309,9 @@ export function createClientRoutes(
             future,
             location,
             matches,
-            loaderData
+            // When prefetching as part of a navigation, we have the `location`/`matches`
+            // but no `data` since we run in parallel with the handler
+            undefined
           )
         : Promise.resolve();
       try {
@@ -347,7 +348,7 @@ export function createClientRoutes(
         (routeModule.clientLoader?.hydrate === true || !route.hasLoader);
 
       dataRoute.loader = async (
-        { request, params }: LoaderFunctionArgs,
+        { request, matches, params }: LoaderFunctionArgs,
         singleFetch?: unknown
       ) => {
         try {
@@ -365,6 +366,7 @@ export function createClientRoutes(
 
               return routeModule.clientLoader({
                 request,
+                matches,
                 params,
                 async serverLoader() {
                   preventInvalidServerHandlerCall("loader", route, isSpaMode);
@@ -393,11 +395,7 @@ export function createClientRoutes(
               state: null,
               key: "",
             },
-            // - Same for `matches`
-            [],
-            // `data`/`loaderData` is weird since we don't have it yet so just
-            // lean into the optionality of `data` here?"
-            {}
+            matches
           );
           return result;
         } finally {
@@ -415,7 +413,7 @@ export function createClientRoutes(
       );
 
       dataRoute.action = (
-        { request, params }: ActionFunctionArgs,
+        { request, matches, params }: ActionFunctionArgs,
         singleFetch?: unknown
       ) => {
         return prefetchStylesAndCallHandler(
@@ -433,6 +431,7 @@ export function createClientRoutes(
 
             return routeModule.clientAction({
               request,
+              matches,
               params,
               async serverAction() {
                 preventInvalidServerHandlerCall("action", route, isSpaMode);
@@ -447,8 +446,7 @@ export function createClientRoutes(
             state: null,
             key: "",
           },
-          [],
-          {}
+          matches
         );
       };
     } else {
@@ -457,7 +455,7 @@ export function createClientRoutes(
       // loader/action as static props on the route
       if (!route.hasClientLoader) {
         dataRoute.loader = (
-          { request }: LoaderFunctionArgs,
+          { request, matches }: LoaderFunctionArgs,
           singleFetch?: unknown
         ) =>
           prefetchStylesAndCallHandler(
@@ -472,13 +470,12 @@ export function createClientRoutes(
               state: null,
               key: "",
             },
-            [],
-            {}
+            matches
           );
       }
       if (!route.hasClientAction) {
         dataRoute.action = (
-          { request }: ActionFunctionArgs,
+          { request, matches }: ActionFunctionArgs,
           singleFetch?: unknown
         ) =>
           prefetchStylesAndCallHandler(
@@ -495,8 +492,7 @@ export function createClientRoutes(
               state: null,
               key: "",
             },
-            [],
-            {}
+            matches
           );
       }
 
@@ -505,17 +501,7 @@ export function createClientRoutes(
         let mod = await loadRouteModuleWithBlockingLinks(
           route,
           routeModulesCache,
-          future,
-          // TODO: Short term POC hack - figure out what to do here
-          {
-            pathname: "/",
-            search: "",
-            hash: "",
-            state: null,
-            key: "",
-          },
-          [],
-          {}
+          future
         );
 
         let lazyRoute: Partial<DataRouteObject> = { ...mod };
@@ -632,19 +618,21 @@ function wrapShouldRevalidateForHdr(
 async function loadRouteModuleWithBlockingLinks(
   route: EntryRoute,
   routeModules: RouteModules,
-  future: FutureConfig,
-  location: Location,
-  matches: AgnosticDataRouteMatch[],
-  loaderData: RouterState["loaderData"]
+  future: FutureConfig
 ) {
   let routeModule = await loadRouteModule(route, routeModules);
   await prefetchStyleLinks(
     route,
     routeModule,
     future,
-    location,
-    matches,
-    loaderData
+    // When called as part of `route.lazy()`, we don't have `location`/`matches`/`data`.
+    // In theory we could proxy them through but that encourages implementations
+    // relying on those params when in reality `lazy()` should be a static
+    // parameter-less function that returns the route implementation  -- and
+    // those functions can be location-aware
+    undefined,
+    undefined,
+    undefined
   );
 
   // Include all `browserSafeRouteExports` fields, except `HydrateFallback`

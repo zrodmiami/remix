@@ -30,6 +30,7 @@ export type AppData = unknown;
 export async function callRouteAction({
   loadContext,
   action,
+  matches,
   params,
   request,
   routeId,
@@ -37,6 +38,7 @@ export async function callRouteAction({
 }: {
   request: Request;
   action: ActionFunction;
+  matches: ActionFunctionArgs["matches"];
   params: ActionFunctionArgs["params"];
   loadContext: AppLoadContext;
   routeId: string;
@@ -46,8 +48,9 @@ export async function callRouteAction({
     request: singleFetch
       ? stripRoutesParam(stripIndexParam(request))
       : stripDataParam(stripIndexParam(request)),
-    context: loadContext,
+    matches,
     params,
+    context: loadContext,
   });
 
   if (result === undefined) {
@@ -68,6 +71,7 @@ export async function callRouteAction({
 export async function callRouteLoader({
   loadContext,
   loader,
+  matches,
   params,
   request,
   routeId,
@@ -75,6 +79,7 @@ export async function callRouteLoader({
 }: {
   request: Request;
   loader: LoaderFunction;
+  matches: LoaderFunctionArgs["matches"];
   params: LoaderFunctionArgs["params"];
   loadContext: AppLoadContext;
   routeId: string;
@@ -84,6 +89,7 @@ export async function callRouteLoader({
     request: singleFetch
       ? stripRoutesParam(stripIndexParam(request))
       : stripDataParam(stripIndexParam(request)),
+    matches,
     context: loadContext,
     params,
   });

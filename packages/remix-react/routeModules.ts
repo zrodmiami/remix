@@ -99,8 +99,8 @@ export type LayoutComponent = ComponentType<{
 // `@remix-run/server-runtime`
 type BaseRouteModuleFunctionArgs = {
   location: Location;
-  params: Params;
   matches: DataRouteMatch[];
+  params: Params;
 };
 
 type RouteModuleFunctionDataArgs<
@@ -119,7 +119,7 @@ type RouteModuleFunctionDataArgs<
   error?: unknown;
 };
 
-type LinksFunctionArgs<
+export type LinksFunctionArgs<
   Loader extends LoaderFunction | unknown = unknown,
   Loaders extends Record<string, LoaderFunction | unknown> = Record<
     string,
@@ -128,7 +128,14 @@ type LinksFunctionArgs<
 > = Future extends {
   unstable_alignRouteSignatures: true;
 }
-  ? [BaseRouteModuleFunctionArgs & RouteModuleFunctionDataArgs<Loader, Loaders>]
+  ? [
+      Omit<BaseRouteModuleFunctionArgs, "location" | "matches" | "params"> & {
+        // Only available from <Links> instantiations, not prefetching/route.lazy
+        location?: BaseRouteModuleFunctionArgs["location"];
+        matches?: BaseRouteModuleFunctionArgs["matches"];
+        params?: BaseRouteModuleFunctionArgs["params"];
+      } & RouteModuleFunctionDataArgs<Loader, Loaders>
+    ]
   : [];
 
 /**

@@ -373,14 +373,14 @@ export function Links() {
   let keyedLinks = React.useMemo(
     () =>
       getKeyedLinksForMatches(
+        location,
         matches,
         routeModules,
         manifest,
         future,
-        location,
         loaderData
       ),
-    [matches, routeModules, manifest, location, loaderData, future]
+    [location, matches, routeModules, manifest, loaderData, future]
   );
 
   return (
@@ -440,11 +440,11 @@ function useKeyedPrefetchLinks(matches: AgnosticDataRouteMatch[]) {
     let interrupted: boolean = false;
 
     void getKeyedPrefetchLinks(
+      location,
       matches,
       manifest,
       routeModules,
       future,
-      location,
       loaderData
     ).then((links) => {
       if (!interrupted) {
@@ -455,7 +455,7 @@ function useKeyedPrefetchLinks(matches: AgnosticDataRouteMatch[]) {
     return () => {
       interrupted = true;
     };
-  }, [matches, manifest, routeModules, future, location, loaderData]);
+  }, [location, matches, manifest, routeModules, future, loaderData]);
 
   return keyedPrefetchLinks;
 }

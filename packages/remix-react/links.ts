@@ -1,5 +1,5 @@
 import type { AgnosticDataRouteMatch, RouterState } from "@remix-run/router";
-import type { Location } from "react-router-dom";
+import type { DataRouteMatch, Location } from "react-router-dom";
 import { parsePath } from "react-router-dom";
 
 import type { AssetsManifest, FutureConfig } from "./entry";
@@ -206,9 +206,9 @@ function callRouteLinksFunction(
   routeId: string,
   routeModule: RouteModule | undefined,
   future: FutureConfig,
-  location: Location,
-  matches: AgnosticDataRouteMatch[],
-  loaderData: RouterState["loaderData"]
+  location: Location | undefined,
+  matches: DataRouteMatch[] | undefined,
+  loaderData: RouterState["loaderData"] | undefined
 ): LinkDescriptor[] {
   if (!routeModule || !routeModule.links) return [];
 
@@ -219,10 +219,10 @@ function callRouteLinksFunction(
     // true temporarily in `future.ts`
     return routeModule.links({
       location,
-      params: matches[0] ? matches[0].params : {},
-      matches,
-      data: loaderData[routeId],
-      loaderData,
+      params: matches && matches[0] ? matches[0].params : undefined,
+      matches: matches ? matches : undefined,
+      data: loaderData ? loaderData[routeId] : undefined,
+      loaderData: loaderData ?? {},
     });
   }
 
@@ -234,11 +234,11 @@ function callRouteLinksFunction(
  * loaded already.
  */
 export function getKeyedLinksForMatches(
+  location: Location,
   matches: AgnosticDataRouteMatch[],
   routeModules: RouteModules,
   manifest: AssetsManifest,
   future: FutureConfig,
-  location: Location,
   loaderData: RouterState["loaderData"]
 ): KeyedLinkDescriptor[] {
   let descriptors = matches
@@ -267,9 +267,9 @@ export async function prefetchStyleLinks(
   route: EntryRoute,
   routeModule: RouteModule,
   future: FutureConfig,
-  location: Location,
-  matches: AgnosticDataRouteMatch[],
-  loaderData: RouterState["loaderData"]
+  location: Location | undefined,
+  matches: AgnosticDataRouteMatch[] | undefined,
+  loaderData: RouterState["loaderData"] | undefined
 ): Promise<void> {
   if ((!route.css && !routeModule.links) || !isPreloadSupported()) return;
 
@@ -367,11 +367,11 @@ function isHtmlLinkDescriptor(object: any): object is HtmlLinkDescriptor {
 export type KeyedHtmlLinkDescriptor = { key: string; link: HtmlLinkDescriptor };
 
 export async function getKeyedPrefetchLinks(
+  location: Location,
   matches: AgnosticDataRouteMatch[],
   manifest: AssetsManifest,
   routeModules: RouteModules,
   future: FutureConfig,
-  location: Location,
   loaderData: RouterState["loaderData"]
 ): Promise<KeyedHtmlLinkDescriptor[]> {
   let links = await Promise.all(
