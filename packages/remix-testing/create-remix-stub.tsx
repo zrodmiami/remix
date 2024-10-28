@@ -108,6 +108,8 @@ export function createRemixStub(
           v3_relativeSplatPath: future?.v3_relativeSplatPath === true,
           v3_lazyRouteDiscovery: future?.v3_lazyRouteDiscovery === true,
           v3_singleFetch: future?.v3_singleFetch === true,
+          unstable_alignRouteSignatures:
+            future?.unstable_alignRouteSignatures === true,
         },
         manifest: {
           routes: {},

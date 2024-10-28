@@ -200,12 +200,6 @@ export interface PrefetchPageDescriptor
 
 export type LinkDescriptor = HtmlLinkDescriptor | PrefetchPageDescriptor;
 
-declare module "@remix-run/server-runtime" {
-  interface Future {
-    unstable_alignRouteSignatures: true;
-  }
-}
-
 ////////////////////////////////////////////////////////////////////////////////
 
 function callRouteLinksFunction(
@@ -219,6 +213,10 @@ function callRouteLinksFunction(
   if (!routeModule || !routeModule.links) return [];
 
   if (future.unstable_alignRouteSignatures) {
+    // @ts-expect-error This is expected to fail because the
+    // `Future["unstable_alignRouteSignatures"]` type flag is off by
+    // default in our code.  To validate these types, you can set it to
+    // true temporarily in `future.ts`
     return routeModule.links({
       location,
       params: matches[0] ? matches[0].params : {},
@@ -228,8 +226,6 @@ function callRouteLinksFunction(
     });
   }
 
-  // @ts-expect-error This doesn't match based on the module
-  // augmentation of Future["unstable_alignRouteSignatures"]
   return routeModule.links(...[]);
 }
 

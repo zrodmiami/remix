@@ -69,21 +69,23 @@ export function getDocumentHeaders(
     } else if (build.future?.unstable_alignRouteSignatures) {
       headers = new Headers(
         routeModule.headers({
+          loaderHeaders,
+          parentHeaders,
+          actionHeaders,
+          errorHeaders: includeErrorHeaders ? errorHeaders : undefined,
+          // @ts-expect-error This is expected to fail because the
+          // `Future["unstable_alignRouteSignatures"]` type flag is off by
+          // default in our code.  To validate these types, you can set it to
+          // true temporarily in `future.ts`
           location: context.location,
           params: context.matches[0] ? context.matches[0].params : {},
           matches: context.matches,
           data: context.loaderData[id],
           loaderData: context.loaderData,
-          loaderHeaders,
-          parentHeaders,
-          actionHeaders,
-          errorHeaders: includeErrorHeaders ? errorHeaders : undefined,
         })
       );
     } else {
       headers = new Headers(
-        // @ts-expect-error This doesn't match based on the module
-        // augmentation of Future["unstable_alignRouteSignatures"]
         routeModule.headers({
           loaderHeaders,
           parentHeaders,
