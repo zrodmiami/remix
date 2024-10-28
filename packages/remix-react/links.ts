@@ -202,11 +202,36 @@ export type LinkDescriptor = HtmlLinkDescriptor | PrefetchPageDescriptor;
 
 declare module "@remix-run/server-runtime" {
   interface Future {
-    unstable_alignRouteSignatures: false;
+    unstable_alignRouteSignatures: true;
   }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+
+function callRouteLinksFunction(
+  routeId: string,
+  routeModule: RouteModule | undefined,
+  future: FutureConfig,
+  location: Location,
+  matches: AgnosticDataRouteMatch[],
+  loaderData: RouterState["loaderData"]
+): LinkDescriptor[] {
+  if (!routeModule || !routeModule.links) return [];
+
+  if (future.unstable_alignRouteSignatures) {
+    return routeModule.links({
+      location,
+      params: matches[0] ? matches[0].params : {},
+      matches,
+      data: loaderData[routeId],
+      loaderData,
+    });
+  }
+
+  // @ts-expect-error This doesn't match based on the module
+  // augmentation of Future["unstable_alignRouteSignatures"]
+  return routeModule.links(...[]);
+}
 
 /**
  * Gets all the links for a set of matches. The modules are assumed to have been
@@ -216,27 +241,24 @@ export function getKeyedLinksForMatches(
   matches: AgnosticDataRouteMatch[],
   routeModules: RouteModules,
   manifest: AssetsManifest,
+  future: FutureConfig,
   location: Location,
-  loaderData: RouterState["loaderData"],
-  future: FutureConfig
+  loaderData: RouterState["loaderData"]
 ): KeyedLinkDescriptor[] {
   let descriptors = matches
     .map((match): LinkDescriptor[][] => {
-      let module = routeModules[match.route.id];
+      let routeModule = routeModules[match.route.id];
       let route = manifest.routes[match.route.id];
       return [
         route.css ? route.css.map((href) => ({ rel: "stylesheet", href })) : [],
-        module?.links
-          ? future.unstable_alignRouteSignatures
-            ? module.links({
-                location,
-                params: match.params,
-                matches,
-                data: loaderData[match.route.id],
-                loaderData,
-              })
-            : module.links(...[])
-          : [],
+        callRouteLinksFunction(
+          route.id,
+          routeModule,
+          future,
+          location,
+          matches,
+          loaderData
+        ),
       ];
     })
     .flat(2);
@@ -247,13 +269,24 @@ export function getKeyedLinksForMatches(
 
 export async function prefetchStyleLinks(
   route: EntryRoute,
-  routeModule: RouteModule
+  routeModule: RouteModule,
+  future: FutureConfig,
+  location: Location,
+  matches: AgnosticDataRouteMatch[],
+  loaderData: RouterState["loaderData"]
 ): Promise<void> {
   if ((!route.css && !routeModule.links) || !isPreloadSupported()) return;
 
   let descriptors = [
     route.css?.map((href) => ({ rel: "stylesheet", href })) ?? [],
-    routeModule.links?.() ?? [],
+    callRouteLinksFunction(
+      route.id,
+      routeModule,
+      future,
+      location,
+      matches,
+      loaderData
+    ),
   ].flat(1);
   if (descriptors.length === 0) return;
 
@@ -340,15 +373,25 @@ export type KeyedHtmlLinkDescriptor = { key: string; link: HtmlLinkDescriptor };
 export async function getKeyedPrefetchLinks(
   matches: AgnosticDataRouteMatch[],
   manifest: AssetsManifest,
-  routeModules: RouteModules
+  routeModules: RouteModules,
+  future: FutureConfig,
+  location: Location,
+  loaderData: RouterState["loaderData"]
 ): Promise<KeyedHtmlLinkDescriptor[]> {
   let links = await Promise.all(
     matches.map(async (match) => {
-      let mod = await loadRouteModule(
+      let routeModule = await loadRouteModule(
         manifest.routes[match.route.id],
         routeModules
       );
-      return mod.links ? mod.links() : [];
+      return callRouteLinksFunction(
+        match.route.id,
+        routeModule,
+        future,
+        location,
+        matches,
+        loaderData
+      );
     })
   );
 

@@ -359,14 +359,28 @@ function getActiveMatches(
  * @see https://remix.run/components/links
  */
 export function Links() {
-  let { isSpaMode, manifest, routeModules, criticalCss } = useRemixContext();
-  let { errors, matches: routerMatches } = useDataRouterStateContext();
+  let { isSpaMode, manifest, routeModules, criticalCss, future } =
+    useRemixContext();
+  let {
+    location,
+    loaderData,
+    errors,
+    matches: routerMatches,
+  } = useDataRouterStateContext();
 
   let matches = getActiveMatches(routerMatches, errors, isSpaMode);
 
   let keyedLinks = React.useMemo(
-    () => getKeyedLinksForMatches(matches, routeModules, manifest),
-    [matches, routeModules, manifest]
+    () =>
+      getKeyedLinksForMatches(
+        matches,
+        routeModules,
+        manifest,
+        future,
+        location,
+        loaderData
+      ),
+    [matches, routeModules, manifest, location, loaderData, future]
   );
 
   return (
@@ -415,7 +429,8 @@ export function PrefetchPageLinks({
 }
 
 function useKeyedPrefetchLinks(matches: AgnosticDataRouteMatch[]) {
-  let { manifest, routeModules } = useRemixContext();
+  let { manifest, routeModules, future } = useRemixContext();
+  let { location, loaderData } = useDataRouterStateContext();
 
   let [keyedPrefetchLinks, setKeyedPrefetchLinks] = React.useState<
     KeyedHtmlLinkDescriptor[]
@@ -424,18 +439,23 @@ function useKeyedPrefetchLinks(matches: AgnosticDataRouteMatch[]) {
   React.useEffect(() => {
     let interrupted: boolean = false;
 
-    void getKeyedPrefetchLinks(matches, manifest, routeModules).then(
-      (links) => {
-        if (!interrupted) {
-          setKeyedPrefetchLinks(links);
-        }
+    void getKeyedPrefetchLinks(
+      matches,
+      manifest,
+      routeModules,
+      future,
+      location,
+      loaderData
+    ).then((links) => {
+      if (!interrupted) {
+        setKeyedPrefetchLinks(links);
       }
-    );
+    });
 
     return () => {
       interrupted = true;
     };
-  }, [matches, manifest, routeModules]);
+  }, [matches, manifest, routeModules, future, location, loaderData]);
 
   return keyedPrefetchLinks;
 }
@@ -574,7 +594,7 @@ function PrefetchPageLinksImpl({
  * @see https://remix.run/components/meta
  */
 export function Meta() {
-  let { isSpaMode, routeModules } = useRemixContext();
+  let { isSpaMode, routeModules, future } = useRemixContext();
   let {
     errors,
     matches: routerMatches,
@@ -592,6 +612,7 @@ export function Meta() {
   let meta: MetaDescriptor[] = [];
   let leafMeta: MetaDescriptor[] | null = null;
   let matches: MetaMatches = [];
+  let values: Record<string, MetaDescriptor[]> = {};
   for (let i = 0; i < _matches.length; i++) {
     let _match = _matches[i];
     let routeId = _match.route.id;
@@ -612,18 +633,33 @@ export function Meta() {
     matches[i] = match;
 
     if (routeModule?.meta) {
-      routeMeta =
-        typeof routeModule.meta === "function"
-          ? (routeModule.meta as MetaFunction)({
-              data,
-              params,
-              location,
-              matches,
-              error,
-            })
-          : Array.isArray(routeModule.meta)
-          ? [...routeModule.meta]
-          : routeModule.meta;
+      if (typeof routeModule.meta === "function") {
+        if (future.unstable_alignRouteSignatures) {
+          routeMeta = (routeModule.meta as MetaFunction)({
+            data,
+            params,
+            location,
+            matches: _matches,
+            loaderData,
+            error,
+            values,
+          });
+        } else {
+          routeMeta = (routeModule.meta as MetaFunction)({
+            data,
+            params,
+            location,
+            // @ts-expect-error This doesn't match based on the module
+            // augmentation of Future["unstable_alignRouteSignatures"]
+            matches,
+            error,
+          });
+        }
+      } else if (Array.isArray(routeModule.meta)) {
+        routeMeta = [...routeModule.meta];
+      } else {
+        routeMeta = routeModule.meta;
+      }
     } else if (leafMeta) {
       // We only assign the route's meta to the nearest leaf if there is no meta
       // export in the route. The meta function may return a falsy value which
@@ -643,6 +679,7 @@ export function Meta() {
     }
 
     match.meta = routeMeta;
+    values[routeId] = routeMeta;
     matches[i] = match;
     meta = [...routeMeta];
     leafMeta = meta;

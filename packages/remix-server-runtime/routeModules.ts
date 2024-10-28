@@ -122,7 +122,7 @@ type RouteModuleFunctionDataArgs<
   };
 };
 
-type HeadersArgs<
+export type HeadersArgs<
   Loader extends LoaderFunction | unknown = unknown,
   Loaders extends Record<string, LoaderFunction | unknown> = Record<
     string,

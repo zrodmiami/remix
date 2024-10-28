@@ -1,6 +1,9 @@
 import * as React from "react";
 import type {
+  AgnosticDataRouteMatch,
   HydrationState,
+  Location,
+  RouterState,
   ShouldRevalidateFunctionArgs,
 } from "@remix-run/router";
 import { UNSAFE_ErrorResponseImpl as ErrorResponse } from "@remix-run/router";
@@ -289,7 +292,11 @@ export function createClientRoutes(
     }
 
     async function prefetchStylesAndCallHandler(
-      handler: () => Promise<unknown>
+      handler: () => Promise<unknown>,
+      future: FutureConfig,
+      location: Location,
+      matches: AgnosticDataRouteMatch[],
+      loaderData: RouterState["loaderData"]
     ) {
       // Only prefetch links if we exist in the routeModulesCache (critical modules
       // and navigating back to pages previously loaded via route.lazy).  Initial
@@ -297,7 +304,14 @@ export function createClientRoutes(
       // prefetching style links via loadRouteModuleWithBlockingLinks.
       let cachedModule = routeModulesCache[route.id];
       let linkPrefetchPromise = cachedModule
-        ? prefetchStyleLinks(route, cachedModule)
+        ? prefetchStyleLinks(
+            route,
+            cachedModule,
+            future,
+            location,
+            matches,
+            loaderData
+          )
         : Promise.resolve();
       try {
         return handler();
@@ -337,39 +351,54 @@ export function createClientRoutes(
         singleFetch?: unknown
       ) => {
         try {
-          let result = await prefetchStylesAndCallHandler(async () => {
-            invariant(
-              routeModule,
-              "No `routeModule` available for critical-route loader"
-            );
-            if (!routeModule.clientLoader) {
-              if (isSpaMode) return null;
-              // Call the server when no client loader exists
-              return fetchServerLoader(request, false, singleFetch);
-            }
+          let result = await prefetchStylesAndCallHandler(
+            async () => {
+              invariant(
+                routeModule,
+                "No `routeModule` available for critical-route loader"
+              );
+              if (!routeModule.clientLoader) {
+                if (isSpaMode) return null;
+                // Call the server when no client loader exists
+                return fetchServerLoader(request, false, singleFetch);
+              }
 
-            return routeModule.clientLoader({
-              request,
-              params,
-              async serverLoader() {
-                preventInvalidServerHandlerCall("loader", route, isSpaMode);
+              return routeModule.clientLoader({
+                request,
+                params,
+                async serverLoader() {
+                  preventInvalidServerHandlerCall("loader", route, isSpaMode);
 
-                // On the first call, resolve with the server result
-                if (isHydrationRequest) {
-                  if (initialData !== undefined) {
-                    return initialData;
+                  // On the first call, resolve with the server result
+                  if (isHydrationRequest) {
+                    if (initialData !== undefined) {
+                      return initialData;
+                    }
+                    if (initialError !== undefined) {
+                      throw initialError;
+                    }
+                    return null;
                   }
-                  if (initialError !== undefined) {
-                    throw initialError;
-                  }
-                  return null;
-                }
 
-                // Call the server loader for client-side navigations
-                return fetchServerLoader(request, true, singleFetch);
-              },
-            });
-          });
+                  // Call the server loader for client-side navigations
+                  return fetchServerLoader(request, true, singleFetch);
+                },
+              });
+            },
+            future,
+            // TODO: Short term POC hack - figure out what to do here
+            // - `location` can be send through from RR alongside `request` in `DataFunctionArgs`
+            {
+              ...new URL(request.url),
+              state: null,
+              key: "",
+            },
+            // - Same for `matches`
+            [],
+            // `data`/`loaderData` is weird since we don't have it yet so just
+            // lean into the optionality of `data` here?"
+            {}
+          );
           return result;
         } finally {
           // Whether or not the user calls `serverLoader`, we only let this
@@ -389,27 +418,38 @@ export function createClientRoutes(
         { request, params }: ActionFunctionArgs,
         singleFetch?: unknown
       ) => {
-        return prefetchStylesAndCallHandler(async () => {
-          invariant(
-            routeModule,
-            "No `routeModule` available for critical-route action"
-          );
-          if (!routeModule.clientAction) {
-            if (isSpaMode) {
-              throw noActionDefinedError("clientAction", route.id);
+        return prefetchStylesAndCallHandler(
+          async () => {
+            invariant(
+              routeModule,
+              "No `routeModule` available for critical-route action"
+            );
+            if (!routeModule.clientAction) {
+              if (isSpaMode) {
+                throw noActionDefinedError("clientAction", route.id);
+              }
+              return fetchServerAction(request, false, singleFetch);
             }
-            return fetchServerAction(request, false, singleFetch);
-          }
 
-          return routeModule.clientAction({
-            request,
-            params,
-            async serverAction() {
-              preventInvalidServerHandlerCall("action", route, isSpaMode);
-              return fetchServerAction(request, true, singleFetch);
-            },
-          });
-        });
+            return routeModule.clientAction({
+              request,
+              params,
+              async serverAction() {
+                preventInvalidServerHandlerCall("action", route, isSpaMode);
+                return fetchServerAction(request, true, singleFetch);
+              },
+            });
+          },
+          future,
+          // TODO: Short term POC hack - figure out what to do here
+          {
+            ...new URL(request.url),
+            state: null,
+            key: "",
+          },
+          [],
+          {}
+        );
       };
     } else {
       // If the lazy route does not have a client loader/action we want to call
@@ -420,29 +460,62 @@ export function createClientRoutes(
           { request }: LoaderFunctionArgs,
           singleFetch?: unknown
         ) =>
-          prefetchStylesAndCallHandler(() => {
-            if (isSpaMode) return Promise.resolve(null);
-            return fetchServerLoader(request, false, singleFetch);
-          });
+          prefetchStylesAndCallHandler(
+            () => {
+              if (isSpaMode) return Promise.resolve(null);
+              return fetchServerLoader(request, false, singleFetch);
+            },
+            future,
+            // TODO: Short term POC hack - figure out what to do here
+            {
+              ...new URL(request.url),
+              state: null,
+              key: "",
+            },
+            [],
+            {}
+          );
       }
       if (!route.hasClientAction) {
         dataRoute.action = (
           { request }: ActionFunctionArgs,
           singleFetch?: unknown
         ) =>
-          prefetchStylesAndCallHandler(() => {
-            if (isSpaMode) {
-              throw noActionDefinedError("clientAction", route.id);
-            }
-            return fetchServerAction(request, false, singleFetch);
-          });
+          prefetchStylesAndCallHandler(
+            () => {
+              if (isSpaMode) {
+                throw noActionDefinedError("clientAction", route.id);
+              }
+              return fetchServerAction(request, false, singleFetch);
+            },
+            future,
+            // TODO: Short term POC hack - figure out what to do here
+            {
+              ...new URL(request.url),
+              state: null,
+              key: "",
+            },
+            [],
+            {}
+          );
       }
 
       // Load all other modules via route.lazy()
       dataRoute.lazy = async () => {
         let mod = await loadRouteModuleWithBlockingLinks(
           route,
-          routeModulesCache
+          routeModulesCache,
+          future,
+          // TODO: Short term POC hack - figure out what to do here
+          {
+            pathname: "/",
+            search: "",
+            hash: "",
+            state: null,
+            key: "",
+          },
+          [],
+          {}
         );
 
         let lazyRoute: Partial<DataRouteObject> = { ...mod };
@@ -558,10 +631,21 @@ function wrapShouldRevalidateForHdr(
 
 async function loadRouteModuleWithBlockingLinks(
   route: EntryRoute,
-  routeModules: RouteModules
+  routeModules: RouteModules,
+  future: FutureConfig,
+  location: Location,
+  matches: AgnosticDataRouteMatch[],
+  loaderData: RouterState["loaderData"]
 ) {
   let routeModule = await loadRouteModule(route, routeModules);
-  await prefetchStyleLinks(route, routeModule);
+  await prefetchStyleLinks(
+    route,
+    routeModule,
+    future,
+    location,
+    matches,
+    loaderData
+  );
 
   // Include all `browserSafeRouteExports` fields, except `HydrateFallback`
   // since those aren't used on lazily loaded routes

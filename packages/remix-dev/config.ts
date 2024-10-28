@@ -606,6 +606,8 @@ export async function resolveConfig(
     v3_throwAbortReason: appConfig.future?.v3_throwAbortReason === true,
     v3_singleFetch: appConfig.future?.v3_singleFetch === true,
     v3_lazyRouteDiscovery: appConfig.future?.v3_lazyRouteDiscovery === true,
+    unstable_alignRouteSignatures:
+      appConfig.future?.unstable_alignRouteSignatures === true,
     unstable_optimizeDeps: appConfig.future?.unstable_optimizeDeps === true,
   };
 

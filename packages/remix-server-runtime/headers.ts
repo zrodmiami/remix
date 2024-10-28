@@ -82,6 +82,8 @@ export function getDocumentHeaders(
       );
     } else {
       headers = new Headers(
+        // @ts-expect-error This doesn't match based on the module
+        // augmentation of Future["unstable_alignRouteSignatures"]
         routeModule.headers({
           loaderHeaders,
           parentHeaders,

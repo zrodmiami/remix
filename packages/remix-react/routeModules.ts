@@ -116,6 +116,7 @@ type RouteModuleFunctionDataArgs<
   loaderData: {
     [K in keyof Loaders]: Loaders[K];
   };
+  error?: unknown;
 };
 
 type LinksFunctionArgs<
@@ -176,12 +177,10 @@ export type MetaArgs<
 > = Future extends {
   unstable_alignRouteSignatures: true;
 }
-  ? [
-      BaseRouteModuleFunctionArgs &
-        RouteModuleFunctionDataArgs<Loader, Loaders> & {
-          values: Record<string, MetaDescriptor[]>;
-        }
-    ]
+  ? BaseRouteModuleFunctionArgs &
+      RouteModuleFunctionDataArgs<Loader, Loaders> & {
+        values: Record<string, MetaDescriptor[]>;
+      }
   : {
       data:
         | (Loader extends LoaderFunction ? SerializeFrom<Loader> : AppData)
