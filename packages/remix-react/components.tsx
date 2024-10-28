@@ -641,6 +641,10 @@ export function Meta() {
             data,
             params,
             location,
+            // @ts-expect-error This is expected to fail because the
+            // `Future["unstable_alignRouteSignatures"]` type flag is off by
+            // default in our code.  To validate these types, you can set it to
+            // true temporarily in `future.ts`
             matches: _matches,
             error,
             loaderData,
@@ -651,10 +655,6 @@ export function Meta() {
             data,
             params,
             location,
-            // @ts-expect-error This is expected to fail because the
-            // `Future["unstable_alignRouteSignatures"]` type flag is off by
-            // default in our code.  To validate these types, you can set it to
-            // true temporarily in `future.ts`
             matches,
             error,
           });

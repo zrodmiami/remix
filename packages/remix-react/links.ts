@@ -214,6 +214,10 @@ function callRouteLinksFunction(
   if (!routeModule || !routeModule.links) return [];
 
   if (future.unstable_alignRouteSignatures) {
+    // @ts-expect-error This is expected to fail because the
+    // `Future["unstable_alignRouteSignatures"]` type flag is off by
+    // default in our code.  To validate these types, you can set it to
+    // true temporarily in `future.ts`
     return routeModule.links({
       location,
       params: matches && matches[0] ? matches[0].params : undefined,
@@ -224,10 +228,6 @@ function callRouteLinksFunction(
     });
   }
 
-  // @ts-expect-error This is expected to fail because the
-  // `Future["unstable_alignRouteSignatures"]` type flag is off by
-  // default in our code.  To validate these types, you can set it to
-  // true temporarily in `future.ts`
   return routeModule.links(...[]);
 }
 

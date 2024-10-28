@@ -76,6 +76,10 @@ export function getDocumentHeaders(
           parentHeaders,
           actionHeaders,
           errorHeaders: includeErrorHeaders ? errorHeaders : undefined,
+          // @ts-expect-error This is expected to fail because the
+          // `Future["unstable_alignRouteSignatures"]` type flag is off by
+          // default in our code.  To validate these types, you can set it to
+          // true temporarily in `future.ts`
           request,
           location: context.location,
           params: context.matches[0] ? context.matches[0].params : {},
@@ -88,10 +92,6 @@ export function getDocumentHeaders(
       );
     } else {
       headers = new Headers(
-        // @ts-expect-error This is expected to fail because the
-        // `Future["unstable_alignRouteSignatures"]` type flag is off by
-        // default in our code.  To validate these types, you can set it to
-        // true temporarily in `future.ts`
         routeModule.headers({
           loaderHeaders,
           parentHeaders,
