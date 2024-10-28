@@ -1,6 +1,7 @@
 import type {
   UNSAFE_DeferredData as DeferredData,
   ErrorResponse,
+  Location,
   StaticHandler,
 } from "@remix-run/router";
 import {
@@ -11,6 +12,7 @@ import {
   json as routerJson,
   stripBasename,
   UNSAFE_ErrorResponseImpl as ErrorResponseImpl,
+  parsePath,
 } from "@remix-run/router";
 
 import type { AppLoadContext } from "./data";
@@ -21,7 +23,6 @@ import { sanitizeErrors, serializeError, serializeErrors } from "./errors";
 import { getDocumentHeaders } from "./headers";
 import invariant from "./invariant";
 import { ServerMode, isServerMode } from "./mode";
-import type { RouteMatch } from "./routeMatching";
 import { matchServerRoutes } from "./routeMatching";
 import type { EntryRoute, ServerRoute } from "./routes";
 import { createStaticHandlerDataRoutes, createRoutes } from "./routes";
@@ -113,6 +114,13 @@ export const createRequestHandler: CreateRequestHandlerFunction = (
     }
 
     let url = new URL(request.url);
+    let location: Location = {
+      pathname: url.pathname,
+      search: url.search,
+      hash: "",
+      state: null,
+      key: "",
+    };
     let manifestUrl = `${_build.basename ?? "/"}/__manifest`.replace(
       /\/+/g,
       "/"
@@ -132,6 +140,7 @@ export const createRequestHandler: CreateRequestHandlerFunction = (
         context: loadContext,
         params,
         request,
+        location,
         matches,
       });
     };
@@ -175,6 +184,7 @@ export const createRequestHandler: CreateRequestHandlerFunction = (
           context: loadContext,
           params,
           request,
+          location,
           matches,
         });
 
@@ -209,6 +219,7 @@ export const createRequestHandler: CreateRequestHandlerFunction = (
           context: loadContext,
           params: singleFetchMatches ? singleFetchMatches[0].params : {},
           request,
+          location,
           matches,
         });
 
@@ -463,7 +474,7 @@ async function handleDocumentRequest(
     return context;
   }
 
-  let headers = getDocumentHeaders(build, context);
+  let headers = getDocumentHeaders(build, context, request, loadContext);
 
   // 304 responses should not have a body or a content-type
   if (context.statusCode === 304) {

@@ -8,5 +8,5 @@
 // `pnpm clean:build` after changing this to remove old .d.ts files
 export interface Future {
   // v3_singleFetch: true;
-  // unstable_alignRouteSignatures: true;
+  unstable_alignRouteSignatures: true;
 }

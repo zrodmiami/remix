@@ -310,7 +310,8 @@ export function createClientRoutes(
             location,
             matches,
             // When prefetching as part of a navigation, we have the `location`/`matches`
-            // but no `data` since we run in parallel with the handler
+            // but no `data`/`errors` since we run in parallel with the handler
+            undefined,
             undefined
           )
         : Promise.resolve();
@@ -348,7 +349,7 @@ export function createClientRoutes(
         (routeModule.clientLoader?.hydrate === true || !route.hasLoader);
 
       dataRoute.loader = async (
-        { request, matches, params }: LoaderFunctionArgs,
+        { request, location, matches, params }: LoaderFunctionArgs,
         singleFetch?: unknown
       ) => {
         try {
@@ -366,6 +367,7 @@ export function createClientRoutes(
 
               return routeModule.clientLoader({
                 request,
+                location,
                 matches,
                 params,
                 async serverLoader() {
@@ -413,7 +415,7 @@ export function createClientRoutes(
       );
 
       dataRoute.action = (
-        { request, matches, params }: ActionFunctionArgs,
+        { request, location, matches, params }: ActionFunctionArgs,
         singleFetch?: unknown
       ) => {
         return prefetchStylesAndCallHandler(
@@ -431,6 +433,7 @@ export function createClientRoutes(
 
             return routeModule.clientAction({
               request,
+              location,
               matches,
               params,
               async serverAction() {
@@ -625,11 +628,13 @@ async function loadRouteModuleWithBlockingLinks(
     route,
     routeModule,
     future,
-    // When called as part of `route.lazy()`, we don't have `location`/`matches`/`data`.
+    // When called as part of `route.lazy()`, we don't have
+    // `location`/`matches`/`data`/`errors`.
     // In theory we could proxy them through but that encourages implementations
     // relying on those params when in reality `lazy()` should be a static
     // parameter-less function that returns the route implementation  -- and
     // those functions can be location-aware
+    undefined,
     undefined,
     undefined,
     undefined

@@ -1,3 +1,5 @@
+import type { Location } from "@remix-run/router";
+
 import {
   redirect,
   json,
@@ -33,10 +35,12 @@ export async function callRouteAction({
   matches,
   params,
   request,
+  location,
   routeId,
   singleFetch,
 }: {
   request: Request;
+  location: Location;
   action: ActionFunction;
   matches: ActionFunctionArgs["matches"];
   params: ActionFunctionArgs["params"];
@@ -48,6 +52,7 @@ export async function callRouteAction({
     request: singleFetch
       ? stripRoutesParam(stripIndexParam(request))
       : stripDataParam(stripIndexParam(request)),
+    location,
     matches,
     params,
     context: loadContext,
@@ -71,6 +76,7 @@ export async function callRouteAction({
 export async function callRouteLoader({
   loadContext,
   loader,
+  location,
   matches,
   params,
   request,
@@ -78,6 +84,7 @@ export async function callRouteLoader({
   singleFetch,
 }: {
   request: Request;
+  location: Location;
   loader: LoaderFunction;
   matches: LoaderFunctionArgs["matches"];
   params: LoaderFunctionArgs["params"];
@@ -89,6 +96,7 @@ export async function callRouteLoader({
     request: singleFetch
       ? stripRoutesParam(stripIndexParam(request))
       : stripDataParam(stripIndexParam(request)),
+    location,
     matches,
     context: loadContext,
     params,

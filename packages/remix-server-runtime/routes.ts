@@ -95,6 +95,7 @@ export function createStaticHandlerDataRoutes(
           (args: RRLoaderFunctionArgs, dataStrategyCtx?: unknown) =>
             callRouteLoader({
               request: args.request,
+              location: args.location,
               matches: args.matches,
               params: args.params,
               loadContext: args.context,
@@ -107,6 +108,7 @@ export function createStaticHandlerDataRoutes(
         ? (args: RRActionFunctionArgs, dataStrategyCtx?: unknown) =>
             callRouteAction({
               request: args.request,
+              location: args.location,
               matches: args.matches,
               params: args.params,
               loadContext: args.context,

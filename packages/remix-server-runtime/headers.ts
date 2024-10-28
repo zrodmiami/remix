@@ -2,10 +2,13 @@ import type { StaticHandlerContext } from "@remix-run/router";
 import { splitCookiesString } from "set-cookie-parser";
 
 import type { ServerBuild } from "./build";
+import type { AppLoadContext } from "./data";
 
 export function getDocumentHeaders(
   build: ServerBuild,
-  context: StaticHandlerContext
+  context: StaticHandlerContext,
+  request: Request,
+  loadContext: AppLoadContext
 ): Headers {
   let boundaryIdx = context.errors
     ? context.matches.findIndex((m) => context.errors![m.route.id])
@@ -73,19 +76,22 @@ export function getDocumentHeaders(
           parentHeaders,
           actionHeaders,
           errorHeaders: includeErrorHeaders ? errorHeaders : undefined,
-          // @ts-expect-error This is expected to fail because the
-          // `Future["unstable_alignRouteSignatures"]` type flag is off by
-          // default in our code.  To validate these types, you can set it to
-          // true temporarily in `future.ts`
+          request,
           location: context.location,
           params: context.matches[0] ? context.matches[0].params : {},
           matches: context.matches,
           data: context.loaderData[id],
           loaderData: context.loaderData,
+          error: context.errors ? Object.values(context.errors)[0] : undefined,
+          context: loadContext,
         })
       );
     } else {
       headers = new Headers(
+        // @ts-expect-error This is expected to fail because the
+        // `Future["unstable_alignRouteSignatures"]` type flag is off by
+        // default in our code.  To validate these types, you can set it to
+        // true temporarily in `future.ts`
         routeModule.headers({
           loaderHeaders,
           parentHeaders,

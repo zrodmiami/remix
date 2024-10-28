@@ -378,9 +378,10 @@ export function Links() {
         routeModules,
         manifest,
         future,
-        loaderData
+        loaderData,
+        errors
       ),
-    [location, matches, routeModules, manifest, loaderData, future]
+    [location, matches, routeModules, manifest, future, loaderData, errors]
   );
 
   return (
@@ -430,7 +431,7 @@ export function PrefetchPageLinks({
 
 function useKeyedPrefetchLinks(matches: AgnosticDataRouteMatch[]) {
   let { manifest, routeModules, future } = useRemixContext();
-  let { location, loaderData } = useDataRouterStateContext();
+  let { location, loaderData, errors } = useDataRouterStateContext();
 
   let [keyedPrefetchLinks, setKeyedPrefetchLinks] = React.useState<
     KeyedHtmlLinkDescriptor[]
@@ -445,7 +446,8 @@ function useKeyedPrefetchLinks(matches: AgnosticDataRouteMatch[]) {
       manifest,
       routeModules,
       future,
-      loaderData
+      loaderData,
+      errors
     ).then((links) => {
       if (!interrupted) {
         setKeyedPrefetchLinks(links);
@@ -455,7 +457,7 @@ function useKeyedPrefetchLinks(matches: AgnosticDataRouteMatch[]) {
     return () => {
       interrupted = true;
     };
-  }, [location, matches, manifest, routeModules, future, loaderData]);
+  }, [location, matches, manifest, routeModules, future, loaderData, errors]);
 
   return keyedPrefetchLinks;
 }
@@ -639,10 +641,6 @@ export function Meta() {
             data,
             params,
             location,
-            // @ts-expect-error This is expected to fail because the
-            // `Future["unstable_alignRouteSignatures"]` type flag is off by
-            // default in our code.  To validate these types, you can set it to
-            // true temporarily in `future.ts`
             matches: _matches,
             error,
             loaderData,
@@ -653,6 +651,10 @@ export function Meta() {
             data,
             params,
             location,
+            // @ts-expect-error This is expected to fail because the
+            // `Future["unstable_alignRouteSignatures"]` type flag is off by
+            // default in our code.  To validate these types, you can set it to
+            // true temporarily in `future.ts`
             matches,
             error,
           });

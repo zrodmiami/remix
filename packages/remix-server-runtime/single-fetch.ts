@@ -122,7 +122,7 @@ export async function singleFetchAction(
     }
 
     let context = result;
-    let headers = getDocumentHeaders(build, context);
+    let headers = getDocumentHeaders(build, context, request, loadContext);
 
     if (isRedirectStatusCode(context.statusCode) && headers.has("Location")) {
       return {
@@ -210,7 +210,7 @@ export async function singleFetchLoaders(
     }
 
     let context = result;
-    let headers = getDocumentHeaders(build, context);
+    let headers = getDocumentHeaders(build, context, request, loadContext);
 
     if (isRedirectStatusCode(context.statusCode) && headers.has("Location")) {
       return {

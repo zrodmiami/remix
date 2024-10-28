@@ -208,24 +208,26 @@ function callRouteLinksFunction(
   future: FutureConfig,
   location: Location | undefined,
   matches: DataRouteMatch[] | undefined,
-  loaderData: RouterState["loaderData"] | undefined
+  loaderData: RouterState["loaderData"] | undefined,
+  errors: RouterState["errors"] | undefined
 ): LinkDescriptor[] {
   if (!routeModule || !routeModule.links) return [];
 
   if (future.unstable_alignRouteSignatures) {
-    // @ts-expect-error This is expected to fail because the
-    // `Future["unstable_alignRouteSignatures"]` type flag is off by
-    // default in our code.  To validate these types, you can set it to
-    // true temporarily in `future.ts`
     return routeModule.links({
       location,
       params: matches && matches[0] ? matches[0].params : undefined,
       matches: matches ? matches : undefined,
       data: loaderData ? loaderData[routeId] : undefined,
       loaderData: loaderData ?? {},
+      error: errors ? Object.values(errors)[0] : undefined,
     });
   }
 
+  // @ts-expect-error This is expected to fail because the
+  // `Future["unstable_alignRouteSignatures"]` type flag is off by
+  // default in our code.  To validate these types, you can set it to
+  // true temporarily in `future.ts`
   return routeModule.links(...[]);
 }
 
@@ -239,7 +241,8 @@ export function getKeyedLinksForMatches(
   routeModules: RouteModules,
   manifest: AssetsManifest,
   future: FutureConfig,
-  loaderData: RouterState["loaderData"]
+  loaderData: RouterState["loaderData"],
+  errors: RouterState["errors"]
 ): KeyedLinkDescriptor[] {
   let descriptors = matches
     .map((match): LinkDescriptor[][] => {
@@ -253,7 +256,8 @@ export function getKeyedLinksForMatches(
           future,
           location,
           matches,
-          loaderData
+          loaderData,
+          errors
         ),
       ];
     })
@@ -269,7 +273,8 @@ export async function prefetchStyleLinks(
   future: FutureConfig,
   location: Location | undefined,
   matches: AgnosticDataRouteMatch[] | undefined,
-  loaderData: RouterState["loaderData"] | undefined
+  loaderData: RouterState["loaderData"] | undefined,
+  errors: RouterState["errors"] | undefined
 ): Promise<void> {
   if ((!route.css && !routeModule.links) || !isPreloadSupported()) return;
 
@@ -281,7 +286,8 @@ export async function prefetchStyleLinks(
       future,
       location,
       matches,
-      loaderData
+      loaderData,
+      errors
     ),
   ].flat(1);
   if (descriptors.length === 0) return;
@@ -372,7 +378,8 @@ export async function getKeyedPrefetchLinks(
   manifest: AssetsManifest,
   routeModules: RouteModules,
   future: FutureConfig,
-  loaderData: RouterState["loaderData"]
+  loaderData: RouterState["loaderData"],
+  errors: RouterState["errors"]
 ): Promise<KeyedHtmlLinkDescriptor[]> {
   let links = await Promise.all(
     matches.map(async (match) => {
@@ -386,7 +393,8 @@ export async function getKeyedPrefetchLinks(
         future,
         location,
         matches,
-        loaderData
+        loaderData,
+        errors
       );
     })
   );

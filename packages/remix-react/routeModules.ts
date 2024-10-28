@@ -116,7 +116,7 @@ type RouteModuleFunctionDataArgs<
   loaderData: {
     [K in keyof Loaders]: Loaders[K];
   };
-  error?: unknown;
+  error: unknown;
 };
 
 export type LinksFunctionArgs<

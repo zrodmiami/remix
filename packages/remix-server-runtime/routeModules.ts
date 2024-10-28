@@ -132,6 +132,7 @@ type RouteModuleFunctionDataArgs<
   loaderData: {
     [K in keyof Loaders]: Loaders[K];
   };
+  error: unknown;
 };
 
 export type HeadersArgs<
@@ -145,6 +146,8 @@ export type HeadersArgs<
 }
   ? BaseRouteModuleFunctionArgs &
       RouteModuleFunctionDataArgs<Loader, Loaders> & {
+        request: Request;
+        context: AppLoadContext;
         loaderHeaders: Headers;
         parentHeaders: Headers;
         actionHeaders: Headers;
@@ -298,12 +301,10 @@ export type ServerRuntimeMetaArgs<
 > = Future extends {
   unstable_alignRouteSignatures: true;
 }
-  ? [
-      BaseRouteModuleFunctionArgs &
-        RouteModuleFunctionDataArgs<Loader, Loaders> & {
-          values: Record<string, ServerRuntimeMetaDescriptor[]>;
-        }
-    ]
+  ? BaseRouteModuleFunctionArgs &
+      RouteModuleFunctionDataArgs<Loader, Loaders> & {
+        values: Record<string, ServerRuntimeMetaDescriptor[]>;
+      }
   : {
       data:
         | (Loader extends LoaderFunction ? SerializeFrom<Loader> : AppData)
