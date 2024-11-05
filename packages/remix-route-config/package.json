@@ -1,37 +1,32 @@
 {
-  "name": "@remix-run/server-runtime",
+  "name": "@remix-run/route-config",
   "version": "2.13.1",
-  "description": "Server runtime for Remix",
+  "description": "Config-based routing utilities, for use within routes.ts",
   "bugs": {
     "url": "https://github.com/remix-run/remix/issues"
   },
   "repository": {
     "type": "git",
     "url": "https://github.com/remix-run/remix",
-    "directory": "packages/remix-server-runtime"
+    "directory": "packages/remix-route-config"
   },
   "license": "MIT",
-  "sideEffects": false,
   "main": "dist/index.js",
   "typings": "dist/index.d.ts",
-  "module": "dist/esm/index.js",
   "scripts": {
     "tsc": "tsc"
   },
   "dependencies": {
-    "@remix-run/router": "1.21.0-pre.0",
-    "@types/cookie": "^0.6.0",
-    "@web3-storage/multipart-parser": "^1.0.0",
-    "cookie": "^0.6.0",
-    "set-cookie-parser": "^2.4.8",
-    "source-map": "^0.7.3",
-    "turbo-stream": "2.4.0"
+    "lodash": "^4.17.21"
   },
   "devDependencies": {
-    "@types/set-cookie-parser": "^2.4.1",
-    "typescript": "^5.1.6"
+    "@remix-run/dev": "workspace:*",
+    "@types/lodash": "^4.14.182",
+    "typescript": "^5.1.6",
+    "vite": "5.1.8"
   },
   "peerDependencies": {
+    "@remix-run/dev": "workspace:^",
     "typescript": "^5.1.0"
   },
   "peerDependenciesMeta": {
