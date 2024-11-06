@@ -151,6 +151,9 @@ describe("shared server runtime", () => {
       expect(await result.json()).toBe("resource");
       expect(rootLoader.mock.calls.length).toBe(0);
       expect(resourceLoader.mock.calls.length).toBe(1);
+      expect(Object.keys((resourceLoader.mock.calls[0] as any)[0])).toEqual(
+        expect.arrayContaining(["matches", "params", "request", "context"])
+      );
       expect(resourceLoader).toHaveBeenCalledWith(
         expect.objectContaining({
           location: expect.objectContaining({
@@ -351,6 +354,9 @@ describe("shared server runtime", () => {
       expect(await result.json()).toBe("resource");
       expect(rootAction.mock.calls.length).toBe(0);
       expect(resourceAction.mock.calls.length).toBe(1);
+      expect(Object.keys((resourceAction.mock.calls[0] as any)[0])).toEqual(
+        expect.arrayContaining(["matches", "params", "request", "context"])
+      );
       expect(resourceAction).toHaveBeenCalledWith(
         expect.objectContaining({
           location: expect.objectContaining({
@@ -682,6 +688,9 @@ describe("shared server runtime", () => {
       expect(await result.json()).toBe("index");
       expect(rootLoader.mock.calls.length).toBe(0);
       expect(indexLoader.mock.calls.length).toBe(1);
+      expect(Object.keys((indexLoader.mock.calls[0] as any)[0])).toEqual(
+        expect.arrayContaining(["matches", "params", "request", "context"])
+      );
       expect(indexLoader).toHaveBeenCalledWith(
         expect.objectContaining({
           location: expect.objectContaining({
@@ -911,6 +920,9 @@ describe("shared server runtime", () => {
       expect(await result.json()).toBe("test");
       expect(rootLoader.mock.calls.length).toBe(0);
       expect(testAction.mock.calls.length).toBe(1);
+      expect(Object.keys((testAction.mock.calls[0] as any)[0])).toEqual(
+        expect.arrayContaining(["matches", "params", "request", "context"])
+      );
       expect(testAction).toHaveBeenCalledWith(
         expect.objectContaining({
           location: expect.objectContaining({

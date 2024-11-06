@@ -39,7 +39,7 @@ export type ActionFunction = (
 /**
  * Arguments passed to a route `action` function
  */
-export type ActionFunctionArgs = RRActionFunctionArgs<AppLoadContext> & {
+export type ActionFunctionArgs = Omit<RRActionFunctionArgs<AppLoadContext>, "location"> & {
   // Context is always provided in Remix, and typed for module augmentation support.
   context: AppLoadContext;
 };
@@ -70,7 +70,7 @@ export type LoaderFunction = (
 /**
  * Arguments passed to a route `loader` function
  */
-export type LoaderFunctionArgs = RRLoaderFunctionArgs<AppLoadContext> & {
+export type LoaderFunctionArgs = Omit<RRLoaderFunctionArgs<AppLoadContext>, "location"> & {
   // Context is always provided in Remix, and typed for module augmentation support.
   context: AppLoadContext;
 };
@@ -114,7 +114,6 @@ export type ClientLoaderFunctionArgs = RRLoaderFunctionArgs<undefined> & {
 //  Note: If you change this, please change the corresponding type in
 // `@remix-run/server-runtime`
 type BaseRouteModuleFunctionArgs = {
-  location: Location;
   matches: AgnosticDataRouteMatch[];
   params: Params;
 };
@@ -178,9 +177,9 @@ export type LinksFunctionArgs<
   unstable_alignRouteSignatures: true;
 }
   ? [
-      Omit<BaseRouteModuleFunctionArgs, "location" | "matches" | "params"> & {
+      Omit<BaseRouteModuleFunctionArgs, "matches" | "params"> & {
         // Only available from <Links> instantiations, not prefetching/route.lazy
-        location?: BaseRouteModuleFunctionArgs["location"];
+        location?: Location;
         matches?: BaseRouteModuleFunctionArgs["matches"];
         params?: BaseRouteModuleFunctionArgs["params"];
       } & RouteModuleFunctionDataArgs<Loader, Loaders>
@@ -304,13 +303,13 @@ export type ServerRuntimeMetaArgs<
   ? BaseRouteModuleFunctionArgs &
       RouteModuleFunctionDataArgs<Loader, Loaders> & {
         values: Record<string, ServerRuntimeMetaDescriptor[]>;
+        location: Location;
       }
   : {
       data:
         | (Loader extends LoaderFunction ? SerializeFrom<Loader> : AppData)
         | undefined;
       params: Params;
-      location: Location;
       matches: ServerRuntimeMetaMatches<Loaders>;
       error?: unknown;
     };

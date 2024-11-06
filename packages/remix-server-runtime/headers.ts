@@ -81,7 +81,6 @@ export function getDocumentHeaders(
           // default in our code.  To validate these types, you can set it to
           // true temporarily in `future.ts`
           request,
-          location: context.location,
           params: context.matches[0] ? context.matches[0].params : {},
           matches: context.matches,
           data: context.loaderData[id],
