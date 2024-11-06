@@ -39,7 +39,10 @@ export type ActionFunction = (
 /**
  * Arguments passed to a route `action` function
  */
-export type ActionFunctionArgs = Omit<RRActionFunctionArgs<AppLoadContext>, "location"> & {
+export type ActionFunctionArgs = Omit<
+  RRActionFunctionArgs<AppLoadContext>,
+  "location"
+> & {
   // Context is always provided in Remix, and typed for module augmentation support.
   context: AppLoadContext;
 };
@@ -70,7 +73,10 @@ export type LoaderFunction = (
 /**
  * Arguments passed to a route `loader` function
  */
-export type LoaderFunctionArgs = Omit<RRLoaderFunctionArgs<AppLoadContext>, "location"> & {
+export type LoaderFunctionArgs = Omit<
+  RRLoaderFunctionArgs<AppLoadContext>,
+  "location"
+> & {
   // Context is always provided in Remix, and typed for module augmentation support.
   context: AppLoadContext;
 };
@@ -303,13 +309,13 @@ export type ServerRuntimeMetaArgs<
   ? BaseRouteModuleFunctionArgs &
       RouteModuleFunctionDataArgs<Loader, Loaders> & {
         values: Record<string, ServerRuntimeMetaDescriptor[]>;
-        location: Location;
       }
   : {
       data:
         | (Loader extends LoaderFunction ? SerializeFrom<Loader> : AppData)
         | undefined;
       params: Params;
+      location: Location;
       matches: ServerRuntimeMetaMatches<Loaders>;
       error?: unknown;
     };

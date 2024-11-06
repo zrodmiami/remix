@@ -156,17 +156,14 @@ describe("shared server runtime", () => {
       );
       expect(resourceLoader).toHaveBeenCalledWith(
         expect.objectContaining({
-          location: expect.objectContaining({
-            pathname: "/resource",
-          }),
-          matches: expect.arrayContaining([
+          matches: [
             expect.objectContaining({
               pathname: "/resource",
               route: expect.objectContaining({
                 id: "routes/resource",
               }),
             }),
-          ]),
+          ],
         })
       );
     });
@@ -359,17 +356,14 @@ describe("shared server runtime", () => {
       );
       expect(resourceAction).toHaveBeenCalledWith(
         expect.objectContaining({
-          location: expect.objectContaining({
-            pathname: "/resource",
-          }),
-          matches: expect.arrayContaining([
+          matches: [
             expect.objectContaining({
               pathname: "/resource",
               route: expect.objectContaining({
                 id: "routes/resource",
               }),
             }),
-          ]),
+          ],
         })
       );
     });
@@ -693,17 +687,20 @@ describe("shared server runtime", () => {
       );
       expect(indexLoader).toHaveBeenCalledWith(
         expect.objectContaining({
-          location: expect.objectContaining({
-            pathname: "/",
-          }),
-          matches: expect.arrayContaining([
+          matches: [
+            expect.objectContaining({
+              pathname: "/",
+              route: expect.objectContaining({
+                id: "root",
+              }),
+            }),
             expect.objectContaining({
               pathname: "/",
               route: expect.objectContaining({
                 id: "routes/_index",
               }),
             }),
-          ]),
+          ],
         })
       );
     });
@@ -925,17 +922,20 @@ describe("shared server runtime", () => {
       );
       expect(testAction).toHaveBeenCalledWith(
         expect.objectContaining({
-          location: expect.objectContaining({
-            pathname: "/test",
-          }),
-          matches: expect.arrayContaining([
+          matches: [
+            expect.objectContaining({
+              pathname: "/",
+              route: expect.objectContaining({
+                id: "root",
+              }),
+            }),
             expect.objectContaining({
               pathname: "/test",
               route: expect.objectContaining({
                 id: "routes/test",
               }),
             }),
-          ]),
+          ],
         })
       );
     });
